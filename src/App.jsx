@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import Accordion from 'react-bootstrap/Accordion';
-import Form from 'react-bootstrap/Form';
-import movieIds from '../moviesId.json';
+import movieIds from '../movieIds.json';
 
 const OMDB_API_KEY = import.meta.env.VITE_OMDB_API_KEY;
 const OMDB_URL = 'https://www.omdbapi.com/';
@@ -33,33 +32,56 @@ function na(value) {
   return value && value !== 'N/A' ? value : null;
 }
 
+function ThemeToggle({ theme, onToggle }) {
+  const isDark = theme === 'dark';
+  return (
+    <button
+      type="button"
+      className="btn btn-link p-2 text-body-secondary text-decoration-none"
+      onClick={onToggle}
+      aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+      title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+    >
+      {isDark ? (
+        <svg xmlns="http://www.w3.org/2000/svg" width="1.5rem" height="1.5rem" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
+          <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z" />
+        </svg>
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" width="1.5rem" height="1.5rem" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
+          <path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 function FilmDetails({ film }) {
   return (
     <div className="film-details">
       <div className="row">
         {na(film.Poster) && (
           <div className="col-auto mb-2">
-            <img src={film.Poster} alt={`Locandina ${film.Title}`} className="rounded" style={{ maxHeight: '280px', width: 'auto' }} />
+            <img src={film.Poster} alt={`Poster ${film.Title}`} className="rounded" style={{ maxHeight: '280px', width: 'auto' }} />
           </div>
         )}
         <div className="col">
           {na(film.Plot) && <p className="mb-2">{film.Plot}</p>}
           <dl className="row mb-0 small">
-            {na(film.Rated) && (<><dt className="col-sm-3 text-body-secondary">Classificazione</dt><dd className="col-sm-9">{film.Rated}</dd></>)}
-            {na(film.Released) && (<><dt className="col-sm-3 text-body-secondary">Uscita</dt><dd className="col-sm-9">{film.Released}</dd></>)}
-            {na(film.Runtime) && (<><dt className="col-sm-3 text-body-secondary">Durata</dt><dd className="col-sm-9">{film.Runtime}</dd></>)}
-            {na(film.Genre) && (<><dt className="col-sm-3 text-body-secondary">Genere</dt><dd className="col-sm-9">{film.Genre}</dd></>)}
-            {na(film.Director) && (<><dt className="col-sm-3 text-body-secondary">Regista</dt><dd className="col-sm-9">{film.Director}</dd></>)}
-            {na(film.Writer) && (<><dt className="col-sm-3 text-body-secondary">Sceneggiatura</dt><dd className="col-sm-9">{film.Writer}</dd></>)}
-            {na(film.Actors) && (<><dt className="col-sm-3 text-body-secondary">Cast</dt><dd className="col-sm-9">{film.Actors}</dd></>)}
-            {na(film.Language) && (<><dt className="col-sm-3 text-body-secondary">Lingua</dt><dd className="col-sm-9">{film.Language}</dd></>)}
-            {na(film.Country) && (<><dt className="col-sm-3 text-body-secondary">Paese</dt><dd className="col-sm-9">{film.Country}</dd></>)}
-            {na(film.Awards) && (<><dt className="col-sm-3 text-body-secondary">Premi</dt><dd className="col-sm-9">{film.Awards}</dd></>)}
-            {na(film.Type) && (<><dt className="col-sm-3 text-body-secondary">Tipo</dt><dd className="col-sm-9">{film.Type}</dd></>)}
+            {na(film.Rated) && (<><dt className="col-sm-3 text-body-secondary">Rated</dt><dd className="col-sm-9">{film.Rated}</dd></>)}
+            {na(film.Released) && (<><dt className="col-sm-3 text-body-secondary">Released</dt><dd className="col-sm-9">{film.Released}</dd></>)}
+            {na(film.Runtime) && (<><dt className="col-sm-3 text-body-secondary">Runtime</dt><dd className="col-sm-9">{film.Runtime}</dd></>)}
+            {na(film.Genre) && (<><dt className="col-sm-3 text-body-secondary">Genre</dt><dd className="col-sm-9">{film.Genre}</dd></>)}
+            {na(film.Director) && (<><dt className="col-sm-3 text-body-secondary">Director</dt><dd className="col-sm-9">{film.Director}</dd></>)}
+            {na(film.Writer) && (<><dt className="col-sm-3 text-body-secondary">Writer</dt><dd className="col-sm-9">{film.Writer}</dd></>)}
+            {na(film.Actors) && (<><dt className="col-sm-3 text-body-secondary">Actors</dt><dd className="col-sm-9">{film.Actors}</dd></>)}
+            {na(film.Language) && (<><dt className="col-sm-3 text-body-secondary">Language</dt><dd className="col-sm-9">{film.Language}</dd></>)}
+            {na(film.Country) && (<><dt className="col-sm-3 text-body-secondary">Country</dt><dd className="col-sm-9">{film.Country}</dd></>)}
+            {na(film.Awards) && (<><dt className="col-sm-3 text-body-secondary">Awards</dt><dd className="col-sm-9">{film.Awards}</dd></>)}
+            {na(film.Type) && (<><dt className="col-sm-3 text-body-secondary">Type</dt><dd className="col-sm-9">{film.Type}</dd></>)}
             {na(film.DVD) && (<><dt className="col-sm-3 text-body-secondary">DVD</dt><dd className="col-sm-9">{film.DVD}</dd></>)}
-            {na(film.BoxOffice) && (<><dt className="col-sm-3 text-body-secondary">Incassi</dt><dd className="col-sm-9">{film.BoxOffice}</dd></>)}
-            {na(film.Production) && (<><dt className="col-sm-3 text-body-secondary">Produzione</dt><dd className="col-sm-9">{film.Production}</dd></>)}
-            {na(film.Website) && (<><dt className="col-sm-3 text-body-secondary">Sito</dt><dd className="col-sm-9"><a href={film.Website} target="_blank" rel="noreferrer">{film.Website}</a></dd></>)}
+            {na(film.BoxOffice) && (<><dt className="col-sm-3 text-body-secondary">Box Office</dt><dd className="col-sm-9">{film.BoxOffice}</dd></>)}
+            {na(film.Production) && (<><dt className="col-sm-3 text-body-secondary">Production</dt><dd className="col-sm-9">{film.Production}</dd></>)}
+            {na(film.Website) && (<><dt className="col-sm-3 text-body-secondary">Website</dt><dd className="col-sm-9"><a href={film.Website} target="_blank" rel="noreferrer">{film.Website}</a></dd></>)}
           </dl>
           {(film.Ratings && film.Ratings.length > 0) && (
             <div className="mt-2">
@@ -74,7 +96,7 @@ function FilmDetails({ film }) {
           {(na(film.Metascore) || na(film.imdbRating) || na(film.imdbVotes)) && (
             <div className="mt-2 small">
               {na(film.imdbRating) && <span className="me-3">IMDb: {film.imdbRating}/10</span>}
-              {na(film.imdbVotes) && <span className="me-3">Voti: {film.imdbVotes}</span>}
+              {na(film.imdbVotes) && <span className="me-3">Votes: {film.imdbVotes}</span>}
               {na(film.Metascore) && <span>Metascore: {film.Metascore}</span>}
             </div>
           )}
@@ -110,15 +132,7 @@ function App() {
       <div className="container py-4">
         <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
           <h1 className="mb-0">Sasha & Marco Movies</h1>
-          <Form.Select
-            aria-label="Tema"
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-            style={{ width: 'auto' }}
-          >
-            <option value="dark">Scuro</option>
-            <option value="light">Chiaro</option>
-          </Form.Select>
+          <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
         </div>
         <p className="text-body-secondary">Caricamento film in corso…</p>
       </div>
@@ -130,15 +144,7 @@ function App() {
       <div className="container py-4">
         <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
           <h1 className="mb-0">Sasha & Marco Movies</h1>
-          <Form.Select
-            aria-label="Tema"
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-            style={{ width: 'auto' }}
-          >
-            <option value="dark">Scuro</option>
-            <option value="light">Chiaro</option>
-          </Form.Select>
+          <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
         </div>
         <p className="text-danger">Errore: {error}</p>
       </div>
@@ -149,15 +155,7 @@ function App() {
     <div className="container py-4">
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
         <h1 className="mb-0">Sasha & Marco Movies</h1>
-        <Form.Select
-          aria-label="Tema"
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          style={{ width: 'auto' }}
-        >
-          <option value="dark">Scuro</option>
-          <option value="light">Chiaro</option>
-        </Form.Select>
+        <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
       </div>
       <Accordion>
         {directors.map(([directorName, films], directorIndex) => (
