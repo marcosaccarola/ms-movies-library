@@ -11,3 +11,20 @@ body {
 #root {
   min-height: 100vh;
 }
+
+.film-details-key {
+  color: var(--bs-secondary-color);
+  opacity: 0.75;
+  font-weight: 400;
+}
+
+.rating-list li {
+  line-height: 1.4;
+}
+
+.rating-list .rating-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  vertical-align: middle;
+}

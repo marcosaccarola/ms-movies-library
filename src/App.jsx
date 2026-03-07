@@ -55,6 +55,12 @@ function ThemeToggle({ theme, onToggle }) {
   );
 }
 
+const RATING_ICONS = {
+  'Internet Movie Database': 'https://www.google.com/s2/favicons?domain=imdb.com&sz=16',
+  'Rotten Tomatoes': 'https://www.google.com/s2/favicons?domain=rottentomatoes.com&sz=16',
+  'Metacritic': 'https://www.google.com/s2/favicons?domain=metacritic.com&sz=16',
+};
+
 function FilmDetails({ film }) {
   return (
     <div className="film-details">
@@ -67,39 +73,44 @@ function FilmDetails({ film }) {
         <div className="col">
           {na(film.Plot) && <p className="mb-2">{film.Plot}</p>}
           <dl className="row mb-0 small">
-            {na(film.Rated) && (<><dt className="col-sm-3 text-body-secondary">Rated</dt><dd className="col-sm-9">{film.Rated}</dd></>)}
-            {na(film.Released) && (<><dt className="col-sm-3 text-body-secondary">Released</dt><dd className="col-sm-9">{film.Released}</dd></>)}
-            {na(film.Runtime) && (<><dt className="col-sm-3 text-body-secondary">Runtime</dt><dd className="col-sm-9">{film.Runtime}</dd></>)}
-            {na(film.Genre) && (<><dt className="col-sm-3 text-body-secondary">Genre</dt><dd className="col-sm-9">{film.Genre}</dd></>)}
-            {na(film.Director) && (<><dt className="col-sm-3 text-body-secondary">Director</dt><dd className="col-sm-9">{film.Director}</dd></>)}
-            {na(film.Writer) && (<><dt className="col-sm-3 text-body-secondary">Writer</dt><dd className="col-sm-9">{film.Writer}</dd></>)}
-            {na(film.Actors) && (<><dt className="col-sm-3 text-body-secondary">Actors</dt><dd className="col-sm-9">{film.Actors}</dd></>)}
-            {na(film.Language) && (<><dt className="col-sm-3 text-body-secondary">Language</dt><dd className="col-sm-9">{film.Language}</dd></>)}
-            {na(film.Country) && (<><dt className="col-sm-3 text-body-secondary">Country</dt><dd className="col-sm-9">{film.Country}</dd></>)}
-            {na(film.Awards) && (<><dt className="col-sm-3 text-body-secondary">Awards</dt><dd className="col-sm-9">{film.Awards}</dd></>)}
-            {na(film.Type) && (<><dt className="col-sm-3 text-body-secondary">Type</dt><dd className="col-sm-9">{film.Type}</dd></>)}
-            {na(film.DVD) && (<><dt className="col-sm-3 text-body-secondary">DVD</dt><dd className="col-sm-9">{film.DVD}</dd></>)}
-            {na(film.BoxOffice) && (<><dt className="col-sm-3 text-body-secondary">Box Office</dt><dd className="col-sm-9">{film.BoxOffice}</dd></>)}
-            {na(film.Production) && (<><dt className="col-sm-3 text-body-secondary">Production</dt><dd className="col-sm-9">{film.Production}</dd></>)}
-            {na(film.Website) && (<><dt className="col-sm-3 text-body-secondary">Website</dt><dd className="col-sm-9"><a href={film.Website} target="_blank" rel="noreferrer">{film.Website}</a></dd></>)}
+            {na(film.Rated) && (<><dt className="col-sm-3 film-details-key">Rated</dt><dd className="col-sm-9">{film.Rated}</dd></>)}
+            {na(film.Released) && (<><dt className="col-sm-3 film-details-key">Released</dt><dd className="col-sm-9">{film.Released}</dd></>)}
+            {na(film.Runtime) && (<><dt className="col-sm-3 film-details-key">Runtime</dt><dd className="col-sm-9">{film.Runtime}</dd></>)}
+            {na(film.Genre) && (<><dt className="col-sm-3 film-details-key">Genre</dt><dd className="col-sm-9">{film.Genre}</dd></>)}
+            {na(film.Director) && (<><dt className="col-sm-3 film-details-key">Director</dt><dd className="col-sm-9">{film.Director}</dd></>)}
+            {na(film.Writer) && (<><dt className="col-sm-3 film-details-key">Writer</dt><dd className="col-sm-9">{film.Writer}</dd></>)}
+            {na(film.Actors) && (<><dt className="col-sm-3 film-details-key">Actors</dt><dd className="col-sm-9">{film.Actors}</dd></>)}
+            {na(film.Language) && (<><dt className="col-sm-3 film-details-key">Language</dt><dd className="col-sm-9">{film.Language}</dd></>)}
+            {na(film.Country) && (<><dt className="col-sm-3 film-details-key">Country</dt><dd className="col-sm-9">{film.Country}</dd></>)}
+            {na(film.Awards) && (<><dt className="col-sm-3 film-details-key">Awards</dt><dd className="col-sm-9">{film.Awards}</dd></>)}
+            {na(film.Type) && (<><dt className="col-sm-3 film-details-key">Type</dt><dd className="col-sm-9">{film.Type}</dd></>)}
+            {na(film.DVD) && (<><dt className="col-sm-3 film-details-key">DVD</dt><dd className="col-sm-9">{film.DVD}</dd></>)}
+            {na(film.BoxOffice) && (<><dt className="col-sm-3 film-details-key">Box Office</dt><dd className="col-sm-9">{film.BoxOffice}</dd></>)}
+            {na(film.Production) && (<><dt className="col-sm-3 film-details-key">Production</dt><dd className="col-sm-9">{film.Production}</dd></>)}
+            {na(film.Website) && (<><dt className="col-sm-3 film-details-key">Website</dt><dd className="col-sm-9"><a href={film.Website} target="_blank" rel="noreferrer">{film.Website}</a></dd></>)}
           </dl>
           {(film.Ratings && film.Ratings.length > 0) && (
             <div className="mt-2">
               <strong className="small text-body-secondary">Rating</strong>
-              <ul className="list-unstyled mb-0 small">
+              <ul className="list-unstyled mb-0 small rating-list">
                 {film.Ratings.map((r, i) => (
-                  <li key={i}>{r.Source}: {r.Value}</li>
+                  <li key={i} className="d-flex align-items-center gap-1">
+                    {RATING_ICONS[r.Source] && (
+                      <img src={RATING_ICONS[r.Source]} alt="" width="14" height="14" className="rating-icon flex-shrink-0" />
+                    )}
+                    <span>{r.Source}: {r.Value}</span>
+                  </li>
                 ))}
               </ul>
             </div>
           )}
-          {(na(film.Metascore) || na(film.imdbRating) || na(film.imdbVotes)) && (
+          {/* {(na(film.Metascore) || na(film.imdbRating) || na(film.imdbVotes)) && (
             <div className="mt-2 small">
               {na(film.imdbRating) && <span className="me-3">IMDb: {film.imdbRating}/10</span>}
               {na(film.imdbVotes) && <span className="me-3">Votes: {film.imdbVotes}</span>}
               {na(film.Metascore) && <span>Metascore: {film.Metascore}</span>}
             </div>
-          )}
+          )} */}
         </div>
       </div>
     </div>
@@ -111,6 +122,8 @@ function App() {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [openDirector, setOpenDirector] = useState(null);
+  const [openFilmByDirector, setOpenFilmByDirector] = useState({});
 
   useEffect(() => {
     document.documentElement.setAttribute('data-bs-theme', theme);
@@ -157,12 +170,24 @@ function App() {
         <h1 className="mb-0">Sasha & Marco Movies</h1>
         <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
       </div>
-      <Accordion>
+      <Accordion
+        activeKey={openDirector}
+        onSelect={(key) => {
+          if (openDirector !== null) {
+            setOpenFilmByDirector((prev) => ({ ...prev, [openDirector]: null }));
+          }
+          setOpenDirector(key);
+        }}
+      >
         {directors.map(([directorName, films], directorIndex) => (
           <Accordion.Item key={directorName} eventKey={String(directorIndex)}>
             <Accordion.Header>{directorName}</Accordion.Header>
             <Accordion.Body>
-              <Accordion flush>
+              <Accordion
+                flush
+                activeKey={openFilmByDirector[directorIndex] ?? null}
+                onSelect={(key) => setOpenFilmByDirector((prev) => ({ ...prev, [directorIndex]: key }))}
+              >
                 {films.map((film, filmIndex) => (
                   <Accordion.Item key={film.imdbID} eventKey={String(filmIndex)}>
                     <Accordion.Header>{film.Title}</Accordion.Header>
