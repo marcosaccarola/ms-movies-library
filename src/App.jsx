@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import Accordion from 'react-bootstrap/Accordion';
+import Form from 'react-bootstrap/Form';
 import moviesData from '../movies.json';
 
 function groupByDirector(movies) {
@@ -10,12 +12,29 @@ function groupByDirector(movies) {
 }
 
 function App() {
+  const [theme, setTheme] = useState('dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-bs-theme', theme);
+  }, [theme]);
+
   const byDirector = groupByDirector(moviesData);
   const directors = Object.entries(byDirector);
 
   return (
     <div className="container py-4">
-      <h1 className="mb-4">Movies Library</h1>
+      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+        <h1 className="mb-0">Sasha & Marco Movies</h1>
+        <Form.Select
+          aria-label="Tema"
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          style={{ width: 'auto' }}
+        >
+          <option value="dark">Scuro</option>
+          <option value="light">Chiaro</option>
+        </Form.Select>
+      </div>
       <Accordion>
         {directors.map(([directorName, films], directorIndex) => (
           <Accordion.Item key={directorName} eventKey={String(directorIndex)}>
