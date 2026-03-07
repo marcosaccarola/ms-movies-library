@@ -66,11 +66,11 @@ function FilmDetails({ film }) {
     <div className="film-details">
       <div className="row">
         {na(film.Poster) && (
-          <div className="col-auto mb-2">
-            <img src={film.Poster} alt={`Poster ${film.Title}`} className="rounded" style={{ maxHeight: '280px', width: 'auto' }} />
+          <div className="col-12 col-md-auto mb-2 mb-md-2 text-center">
+            <img src={film.Poster} alt={`Poster ${film.Title}`} className="rounded film-details-poster" style={{ maxHeight: '280px', width: 'auto' }} />
           </div>
         )}
-        <div className="col">
+        <div className="col-12 col-md">
           {na(film.Plot) && <p className="mb-2">{film.Plot}</p>}
           <dl className="row mb-0 small">
             {na(film.Rated) && (<><dt className="col-sm-3 film-details-key">Rated</dt><dd className="col-sm-9">{film.Rated}</dd></>)}
