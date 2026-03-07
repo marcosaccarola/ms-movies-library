@@ -21,31 +21,31 @@
         "rating": 8.0
     },
     {
-        "title": "The Killing of a Sacred Deer",
-        "year": 2017,
+        "title": "The Favourite",
+        "year": 2018,
         "director": "Yorgos Lanthimos",
-        "genre": "Drama, Thriller",
-        "rating": 7.0
+        "genre": "Drama, Comedy",
+        "rating": 8.0
     },
     {
         "title": "Poor Things",
         "year": 2026,
         "director": "Yorgos Lanthimos",
         "genre": "Drama, Comedy",
-        "rating": 7.0
+        "rating": 8.0
     },
     {
         "title": "Bugonia",
         "year": 2026,
         "director": "Yorgos Lanthimos",
         "genre": "Action, Crime, Thriller",
-        "rating": 7.0
+        "rating": 8.0
     },
     {
         "title": "Kind of Kindness",
         "year": 2026,
         "director": "Yorgos Lanthimos",
         "genre": "Drama, Comedy",
-        "rating": 7.0
+        "rating": 8.0
     }
 ]
