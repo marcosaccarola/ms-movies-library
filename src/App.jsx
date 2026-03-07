@@ -138,7 +138,12 @@ function App() {
   }, []);
 
   const byDirector = groupByDirector(movies);
-  const directors = Object.entries(byDirector);
+  const directors = Object.entries(byDirector)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, films]) => [
+      name,
+      [...films].sort((a, b) => (parseInt(a.Year, 10) || 0) - (parseInt(b.Year, 10) || 0)),
+    ]);
 
   if (loading) {
     return (
