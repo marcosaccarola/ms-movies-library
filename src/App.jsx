@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import Accordion from 'react-bootstrap/Accordion';
+import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
 
 const OMDB_API_KEY = import.meta.env.VITE_OMDB_API_KEY;
 const OMDB_URL = 'https://www.omdbapi.com/';
@@ -118,9 +120,13 @@ function FilmDetails({ film }) {
 
 function App() {
   const [theme, setTheme] = useState('dark');
+  const [showUsernameForm, setShowUsernameForm] = useState(true);
+  const [usernameInput, setUsernameInput] = useState('');
+  const [currentUsername, setCurrentUsername] = useState(null);
   const [movies, setMovies] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [userNotFound, setUserNotFound] = useState(false);
   const [openDirector, setOpenDirector] = useState(null);
   const [openFilmByDirector, setOpenFilmByDirector] = useState({});
 
@@ -129,6 +135,13 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
+    if (currentUsername == null) return;
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setUserNotFound(false);
+
     async function loadMovies() {
       try {
         const usersRes = await fetch('/api/users');
@@ -138,23 +151,39 @@ function App() {
           throw new Error('L’API non ha restituito JSON. In locale usa "vercel dev" (non solo "npm run dev") e verifica che STORAGE_MONGODB_URI sia impostata.');
         }
         const users = await usersRes.json();
-        const user = users?.[0];
-        const moviesIds = user?.moviesIds ?? [];
+        const user = users?.find((u) => (u.username || '').toLowerCase() === currentUsername.trim().toLowerCase());
+        if (cancelled) return;
+        if (!user) {
+          setUserNotFound(true);
+          setMovies([]);
+          return;
+        }
+        const moviesIds = user.moviesIds ?? [];
         const ids = moviesIds.map((item) => item.imdbID).filter(Boolean);
         if (ids.length === 0) {
           setMovies([]);
           return;
         }
         const results = await Promise.all(ids.map((id) => fetchMovieByImdbId(id)));
+        if (cancelled) return;
         setMovies(results);
       } catch (err) {
-        setError(err.message);
+        if (!cancelled) setError(err.message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     loadMovies();
-  }, []);
+    return () => { cancelled = true; };
+  }, [currentUsername]);
+
+  const handleUsernameSubmit = (e) => {
+    e.preventDefault();
+    const name = usernameInput.trim();
+    if (!name) return;
+    setShowUsernameForm(false);
+    setCurrentUsername(name);
+  };
 
   const byDirector = groupByDirector(movies);
   const directors = Object.entries(byDirector)
@@ -163,6 +192,30 @@ function App() {
       name,
       [...films].sort((a, b) => (parseInt(a.Year, 10) || 0) - (parseInt(b.Year, 10) || 0)),
     ]);
+
+  if (showUsernameForm) {
+    return (
+      <div className="container py-4">
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+          <h1 className="mb-0">Sasha & Marco Movies</h1>
+          <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+        </div>
+        <Form onSubmit={handleUsernameSubmit} className="mw-25">
+          <Form.Group className="mb-2">
+            <Form.Label>Nome utente</Form.Label>
+            <Form.Control
+              type="text"
+              value={usernameInput}
+              onChange={(e) => setUsernameInput(e.target.value)}
+              placeholder="es. sasha"
+              autoFocus
+            />
+          </Form.Group>
+          <Button type="submit" variant="primary">Carica</Button>
+        </Form>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -184,6 +237,20 @@ function App() {
           <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
         </div>
         <p className="text-danger">Errore: {error}</p>
+        <Button variant="outline-secondary" onClick={() => { setError(null); setShowUsernameForm(true); setCurrentUsername(null); }}>Cambia utente</Button>
+      </div>
+    );
+  }
+
+  if (userNotFound) {
+    return (
+      <div className="container py-4">
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+          <h1 className="mb-0">Sasha & Marco Movies</h1>
+          <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+        </div>
+        <p className="text-body-secondary">Utente non trovato.</p>
+        <Button variant="outline-primary" onClick={() => { setUserNotFound(false); setShowUsernameForm(true); setCurrentUsername(null); }}>Inserisci un altro utente</Button>
       </div>
     );
   }
@@ -192,7 +259,11 @@ function App() {
     <div className="container py-4">
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
         <h1 className="mb-0">Sasha & Marco Movies</h1>
-        <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+        <div className="d-flex align-items-center gap-2">
+          <span className="small text-body-secondary">{currentUsername}</span>
+          <Button variant="link" className="p-0 small text-decoration-none" onClick={() => { setShowUsernameForm(true); setCurrentUsername(null); setMovies([]); }}>Cambia utente</Button>
+          <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+        </div>
       </div>
       <Accordion
         activeKey={openDirector}
