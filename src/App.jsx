@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Accordion from 'react-bootstrap/Accordion';
 import Button from 'react-bootstrap/Button';
 import Dropdown from 'react-bootstrap/Dropdown';
 import Form from 'react-bootstrap/Form';
+import Modal from 'react-bootstrap/Modal';
 
 const STORAGE_USERNAME_KEY = 'moviesLibraryUsername';
 
@@ -75,10 +76,29 @@ function UserBlock({ username, onLogout }) {
   );
 }
 
-function TopBar({ theme, onThemeToggle, username, onLogout }) {
+function AddFilmButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      className="btn btn-link p-2 text-body-secondary text-decoration-none"
+      onClick={onClick}
+      aria-label="Cerca e aggiungi film"
+      title="Cerca film"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="1.5rem" height="1.5rem" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
+        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" />
+      </svg>
+    </button>
+  );
+}
+
+function TopBar({ theme, onThemeToggle, username, onLogout, onOpenSearch }) {
   return (
     <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
       <ThemeToggle theme={theme} onThemeToggle={onThemeToggle} />
+      <div className="flex-grow-1 d-flex justify-content-center">
+        <AddFilmButton onClick={onOpenSearch} />
+      </div>
       {username ? <UserBlock username={username} onLogout={onLogout} /> : <span />}
     </div>
   );
@@ -157,6 +177,10 @@ function App() {
   const [userNotFound, setUserNotFound] = useState(false);
   const [openDirector, setOpenDirector] = useState(null);
   const [openFilmByDirector, setOpenFilmByDirector] = useState({});
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResult, setSearchResult] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-bs-theme', theme);
@@ -215,6 +239,32 @@ function App() {
     setCurrentUsername(name);
   };
 
+  const openSearchModal = useCallback(() => {
+    setSearchQuery('');
+    setSearchResult(null);
+    setShowSearchModal(true);
+  }, []);
+
+  useEffect(() => {
+    if (!showSearchModal || !searchQuery.trim()) {
+      setSearchResult(null);
+      return;
+    }
+    const t = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const res = await fetch(`/api/movies?title=${encodeURIComponent(searchQuery.trim())}`);
+        const data = await res.json();
+        setSearchResult(Array.isArray(data) && data.length > 0 ? data[0] : null);
+      } catch {
+        setSearchResult(null);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [showSearchModal, searchQuery]);
+
   const byDirector = groupByDirector(movies);
   const directors = Object.entries(byDirector)
     .sort((a, b) => a[0].localeCompare(b[0]))
@@ -223,10 +273,33 @@ function App() {
       [...films].sort((a, b) => (parseInt(a.Year, 10) || 0) - (parseInt(b.Year, 10) || 0)),
     ]);
 
+  const searchModal = (
+    <Modal show={showSearchModal} onHide={() => { setShowSearchModal(false); setSearchQuery(''); setSearchResult(null); }} centered>
+      <Modal.Header closeButton>
+        <Modal.Title>Cerca film</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Form.Group className="mb-3">
+          <Form.Control
+            type="text"
+            placeholder="Titolo del film..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoFocus
+          />
+        </Form.Group>
+        {searchLoading && <p className="text-body-secondary small">Ricerca in corso…</p>}
+        {!searchLoading && searchQuery.trim() && searchResult === null && <p className="text-body-secondary small">Nessun risultato.</p>}
+        {!searchLoading && searchResult && <FilmDetails film={searchResult} />}
+      </Modal.Body>
+    </Modal>
+  );
+
   if (showUsernameForm) {
     return (
+      <>
       <div className="container py-4">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
         <Form onSubmit={handleUsernameSubmit} className="mw-25">
           <Form.Group className="mb-2">
             <Form.Label>Nome utente</Form.Label>
@@ -241,45 +314,58 @@ function App() {
           <Button type="submit" variant="primary">Carica</Button>
         </Form>
       </div>
+      {searchModal}
+    </>
     );
   }
 
   if (loading) {
     return (
+      <>
       <div className="container py-4">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
         <p className="text-body-secondary">Caricamento film in corso…</p>
       </div>
+      {searchModal}
+    </>
     );
   }
 
   if (error) {
     return (
+      <>
       <div className="container py-4">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
         <p className="text-danger">Errore: {error}</p>
         <Button variant="outline-secondary" onClick={() => { setError(null); localStorage.removeItem(STORAGE_USERNAME_KEY); setShowUsernameForm(true); setCurrentUsername(null); }}>Riprova</Button>
       </div>
+      {searchModal}
+    </>
     );
   }
 
   if (userNotFound) {
     return (
+      <>
       <div className="container py-4">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
         <p className="text-body-secondary">Utente non trovato.</p>
         <Button variant="outline-primary" onClick={() => { setUserNotFound(false); setShowUsernameForm(true); setCurrentUsername(null); }}>Inserisci un altro utente</Button>
       </div>
+      {searchModal}
+    </>
     );
   }
 
   return (
+    <>
     <div className="container py-4">
       <TopBar
         theme={theme}
         onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         username={currentUsername}
         onLogout={() => { localStorage.removeItem(STORAGE_USERNAME_KEY); setShowUsernameForm(true); setCurrentUsername(null); setMovies([]); }}
+        onOpenSearch={openSearchModal}
       />
       <Accordion
         activeKey={openDirector}
@@ -313,6 +399,8 @@ function App() {
         ))}
       </Accordion>
     </div>
+    {searchModal}
+    </>
   );
 }
 

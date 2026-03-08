@@ -22,11 +22,16 @@ export default async function handler(req, res) {
     const collection = db.collection('movies');
 
     const imdbIDs = req.query.imdbIDs;
-    const filter = imdbIDs
-      ? { imdbID: { $in: imdbIDs.split(',').map((id) => id.trim()) } }
-      : {};
+    const title = req.query.title?.trim();
+    let filter = {};
+    if (imdbIDs) {
+      filter = { imdbID: { $in: imdbIDs.split(',').map((id) => id.trim()) } };
+    } else if (title) {
+      filter = { Title: { $regex: title, $options: 'i' } };
+    }
 
     const movies = await collection.find(filter).toArray();
+    res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
     return res.status(200).json(movies);
   } catch (err) {
