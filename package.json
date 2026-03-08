@@ -4,13 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n api,vite -c blue,green \"npm run dev:api\" \"vite\"",
+    "dev:api": "node server.js",
+    "dev:vite": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "seed:users": "node scripts/seed-users.js"
   },
   "dependencies": {
     "bootstrap": "^5.3.3",
+    "express": "^4.21.0",
     "mongodb": "^6.10.0",
     "react": "^18.3.1",
     "react-bootstrap": "^2.10.2",
@@ -18,6 +21,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.3",
+    "concurrently": "^9.0.1",
     "dotenv": "^16.4.5",
     "vite": "^5.4.10"
   }
