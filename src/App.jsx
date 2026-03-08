@@ -92,6 +92,23 @@ function AddFilmButton({ onClick }) {
   );
 }
 
+function TrashIcon({ onClick, ariaLabel }) {
+  return (
+    <button
+      type="button"
+      className="btn btn-link p-1 text-body-secondary text-decoration-none"
+      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+      aria-label={ariaLabel}
+      title={ariaLabel}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="1.25rem" height="1.25rem" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
+        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z" />
+        <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z" />
+      </svg>
+    </button>
+  );
+}
+
 function TopBar({ theme, onThemeToggle, username, onLogout, onOpenSearch }) {
   return (
     <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
@@ -181,6 +198,8 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [filmToRemove, setFilmToRemove] = useState(null);
+  const [removeLoading, setRemoveLoading] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-bs-theme', theme);
@@ -388,8 +407,14 @@ function App() {
                 {films.map((film, filmIndex) => (
                   <Accordion.Item key={film.imdbID} eventKey={String(filmIndex)}>
                     <Accordion.Header>{film.Title}</Accordion.Header>
-                    <Accordion.Body>
+                    <Accordion.Body className="position-relative">
                       <FilmDetails film={film} />
+                      <div className="position-absolute bottom-0 end-0 p-2">
+                        <TrashIcon
+                          ariaLabel="Rimuovi dalla collezione"
+                          onClick={() => setFilmToRemove({ imdbID: film.imdbID, Title: film.Title })}
+                        />
+                      </div>
                     </Accordion.Body>
                   </Accordion.Item>
                 ))}
@@ -400,6 +425,46 @@ function App() {
       </Accordion>
     </div>
     {searchModal}
+      <Modal
+        show={filmToRemove != null}
+        onHide={() => !removeLoading && setFilmToRemove(null)}
+        centered
+      >
+        <Modal.Body>
+          Are you sure you want to remove this movie from your collection?
+        </Modal.Body>
+        <Modal.Footer className="d-flex justify-content-between w-100">
+          <Button variant="secondary" onClick={() => setFilmToRemove(null)} disabled={removeLoading}>
+            Annulla
+          </Button>
+          <Button
+            variant="danger"
+            onClick={async () => {
+              if (!filmToRemove || !currentUsername) return;
+              setRemoveLoading(true);
+              try {
+                const res = await fetch('/api/remove-movie', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ username: currentUsername, imdbID: filmToRemove.imdbID }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || `Rimozione non riuscita (${res.status})`);
+                setMovies((prev) => prev.filter((m) => m.imdbID !== filmToRemove.imdbID));
+                setFilmToRemove(null);
+              } catch (err) {
+                setError(err.message);
+                setFilmToRemove(null);
+              } finally {
+                setRemoveLoading(false);
+              }
+            }}
+            disabled={removeLoading}
+          >
+            Yes
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 }
