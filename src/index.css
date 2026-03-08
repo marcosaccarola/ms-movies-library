@@ -34,3 +34,7 @@ body {
   margin-left: auto;
   margin-right: auto;
 }
+
+#user-dropdown::after {
+  display: none;
+}
