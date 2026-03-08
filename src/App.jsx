@@ -33,6 +33,17 @@ async function fetchMovieByImdbId(imdbID) {
   return data;
 }
 
+/** Ricerca per titolo su OMDB; restituisce il primo risultato con dettagli completi o null. */
+async function searchOmdbByTitle(title) {
+  const params = new URLSearchParams({ apikey: OMDB_API_KEY, s: title.trim() });
+  const res = await fetch(`${OMDB_URL}?${params}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.Response === 'False' || !data.Search?.length) return null;
+  const first = data.Search[0];
+  return fetchMovieByImdbId(first.imdbID);
+}
+
 function na(value) {
   return value && value !== 'N/A' ? value : null;
 }
@@ -127,16 +138,14 @@ const RATING_ICONS = {
   'Metacritic': 'https://www.google.com/s2/favicons?domain=metacritic.com&sz=16',
 };
 
-function FilmDetails({ film }) {
-  return (
-    <div className="film-details">
-      <div className="row">
-        {na(film.Poster) && (
-          <div className="col-12 col-md-auto mb-2 mb-md-2 text-center">
-            <img src={film.Poster} alt={`Poster ${film.Title}`} className="rounded film-details-poster" style={{ maxHeight: '280px', width: 'auto' }} />
-          </div>
-        )}
-        <div className="col-12 col-md">
+function FilmDetails({ film, stacked }) {
+  const posterBlock = na(film.Poster) && (
+    <div className={stacked ? 'text-center mb-3' : 'col-12 col-md-auto mb-2 mb-md-2 text-center'}>
+      <img src={film.Poster} alt={`Poster ${film.Title}`} className="rounded film-details-poster" style={{ maxHeight: '280px', width: 'auto' }} />
+    </div>
+  );
+  const contentBlock = (
+    <div className={stacked ? '' : 'col-12 col-md'}>
           {na(film.Plot) && <p className="mb-2">{film.Plot}</p>}
           <dl className="row mb-0 small">
             {na(film.Rated) && (<><dt className="col-sm-3 film-details-key">Rated</dt><dd className="col-sm-9">{film.Rated}</dd></>)}
@@ -178,7 +187,20 @@ function FilmDetails({ film }) {
             </div>
           )} */}
         </div>
-      </div>
+  );
+  return (
+    <div className="film-details">
+      {stacked ? (
+        <>
+          {posterBlock}
+          {contentBlock}
+        </>
+      ) : (
+        <div className="row">
+          {posterBlock}
+          {contentBlock}
+        </div>
+      )}
     </div>
   );
 }
@@ -292,6 +314,21 @@ function App() {
       [...films].sort((a, b) => (parseInt(a.Year, 10) || 0) - (parseInt(b.Year, 10) || 0)),
     ]);
 
+  const handleSearchOmdb = useCallback(async () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    setSearchLoading(true);
+    setSearchResult(null);
+    try {
+      const film = await searchOmdbByTitle(q);
+      setSearchResult(film ?? null);
+    } catch {
+      setSearchResult(null);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [searchQuery]);
+
   const searchModal = (
     <Modal show={showSearchModal} onHide={() => { setShowSearchModal(false); setSearchQuery(''); setSearchResult(null); }} centered>
       <Modal.Header closeButton>
@@ -299,17 +336,63 @@ function App() {
       </Modal.Header>
       <Modal.Body>
         <Form.Group className="mb-3">
-          <Form.Control
-            type="text"
-            placeholder="Titolo del film..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            autoFocus
-          />
+          <div className="d-flex gap-2">
+            <Form.Control
+              type="text"
+              placeholder="Titolo del film..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchOmdb(); } }}
+              autoFocus
+            />
+            <Button
+              type="button"
+              variant="outline-secondary"
+              onClick={handleSearchOmdb}
+              disabled={searchLoading || !searchQuery.trim()}
+              aria-label="Cerca su OMDB"
+              title="Cerca su OMDB"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="1.25rem" height="1.25rem" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
+                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z" />
+              </svg>
+            </Button>
+          </div>
         </Form.Group>
         {searchLoading && <p className="text-body-secondary small">Ricerca in corso…</p>}
         {!searchLoading && searchQuery.trim() && searchResult === null && <p className="text-body-secondary small">Nessun risultato.</p>}
-        {!searchLoading && searchResult && <FilmDetails film={searchResult} />}
+        {!searchLoading && searchResult && (
+          <>
+            <FilmDetails film={searchResult} stacked />
+            {currentUsername && (
+              <div className="mt-3 text-end">
+                <Button
+                  variant="primary"
+                  onClick={async () => {
+                    if (!searchResult?.imdbID) return;
+                    try {
+                      const res = await fetch('/api/add-movie', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: currentUsername, imdbID: searchResult.imdbID }),
+                      });
+                      const data = await res.json().catch(() => ({}));
+                      if (!res.ok) throw new Error(data.error || 'Aggiunta non riuscita');
+                      setMovies((prev) => (prev.some((m) => m.imdbID === searchResult.imdbID) ? prev : [...prev, searchResult]));
+                      setShowSearchModal(false);
+                      setSearchQuery('');
+                      setSearchResult(null);
+                    } catch (err) {
+                      setError(err.message);
+                    }
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+            )}
+          </>
+        )}
       </Modal.Body>
     </Modal>
   );
