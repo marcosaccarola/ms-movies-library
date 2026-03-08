@@ -33,9 +33,19 @@ async function fetchMovieByImdbId(imdbID) {
   return data;
 }
 
-/** Ricerca per titolo su OMDB; restituisce il primo risultato con dettagli completi o null. */
-async function searchOmdbByTitle(title) {
+const SEARCH_YEAR_MIN = 1901;
+const SEARCH_YEAR_MAX = 2050;
+
+function isValidSearchYear(value) {
+  if (value === '' || value == null) return false;
+  const y = parseInt(String(value).trim(), 10);
+  return !Number.isNaN(y) && y >= SEARCH_YEAR_MIN && y <= SEARCH_YEAR_MAX;
+}
+
+/** Ricerca per titolo (e opzionalmente anno) su OMDB; restituisce il primo risultato con dettagli completi o null. */
+async function searchOmdbByTitle(title, year) {
   const params = new URLSearchParams({ apikey: OMDB_API_KEY, s: title.trim() });
+  if (isValidSearchYear(year)) params.set('y', String(year).trim());
   const res = await fetch(`${OMDB_URL}?${params}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
@@ -218,6 +228,8 @@ function App() {
   const [openFilmByDirector, setOpenFilmByDirector] = useState({});
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchYear, setSearchYear] = useState('');
+  const [searchMongoResults, setSearchMongoResults] = useState(null);
   const [searchResult, setSearchResult] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [filmToRemove, setFilmToRemove] = useState(null);
@@ -282,13 +294,15 @@ function App() {
 
   const openSearchModal = useCallback(() => {
     setSearchQuery('');
+    setSearchYear('');
+    setSearchMongoResults(null);
     setSearchResult(null);
     setShowSearchModal(true);
   }, []);
 
   useEffect(() => {
     if (!showSearchModal || !searchQuery.trim()) {
-      setSearchResult(null);
+      setSearchMongoResults(null);
       return;
     }
     const t = setTimeout(async () => {
@@ -296,15 +310,33 @@ function App() {
       try {
         const res = await fetch(`/api/movies?title=${encodeURIComponent(searchQuery.trim())}`);
         const data = await res.json();
-        setSearchResult(Array.isArray(data) && data.length > 0 ? data[0] : null);
+        setSearchMongoResults(Array.isArray(data) ? data : null);
       } catch {
-        setSearchResult(null);
+        setSearchMongoResults(null);
       } finally {
         setSearchLoading(false);
       }
     }, 400);
     return () => clearTimeout(t);
   }, [showSearchModal, searchQuery]);
+
+  useEffect(() => {
+    if (!searchMongoResults || searchMongoResults.length === 0) {
+      setSearchResult(null);
+      return;
+    }
+    if (searchMongoResults.length === 1) {
+      setSearchResult(searchMongoResults[0]);
+      return;
+    }
+    if (isValidSearchYear(searchYear)) {
+      const y = parseInt(String(searchYear).trim(), 10);
+      const filtered = searchMongoResults.filter((film) => (parseInt(film.Year, 10) || 0) === y);
+      setSearchResult(filtered.length > 0 ? filtered[0] : null);
+      return;
+    }
+    setSearchResult(searchMongoResults[0]);
+  }, [searchMongoResults, searchYear]);
 
   const byDirector = groupByDirector(movies);
   const directors = Object.entries(byDirector)
@@ -320,23 +352,23 @@ function App() {
     setSearchLoading(true);
     setSearchResult(null);
     try {
-      const film = await searchOmdbByTitle(q);
+      const film = await searchOmdbByTitle(q, searchYear);
       setSearchResult(film ?? null);
     } catch {
       setSearchResult(null);
     } finally {
       setSearchLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, searchYear]);
 
   const searchModal = (
-    <Modal show={showSearchModal} onHide={() => { setShowSearchModal(false); setSearchQuery(''); setSearchResult(null); }} centered>
+    <Modal show={showSearchModal} onHide={() => { setShowSearchModal(false); setSearchQuery(''); setSearchYear(''); setSearchMongoResults(null); setSearchResult(null); }} centered>
       <Modal.Header closeButton>
         <Modal.Title>Cerca film</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form.Group className="mb-3">
-          <div className="d-flex gap-2">
+          <div className="d-flex gap-2 flex-wrap">
             <Form.Control
               type="text"
               placeholder="Titolo del film..."
@@ -344,6 +376,19 @@ function App() {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchOmdb(); } }}
               autoFocus
+              className="flex-grow-1"
+              style={{ minWidth: '140px' }}
+            />
+            <Form.Control
+              type="number"
+              placeholder="Anno"
+              min={SEARCH_YEAR_MIN}
+              max={SEARCH_YEAR_MAX}
+              value={searchYear}
+              onChange={(e) => setSearchYear(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchOmdb(); } }}
+              style={{ width: '5.5rem' }}
+              aria-label="Anno (opzionale)"
             />
             <Button
               type="button"
@@ -381,6 +426,8 @@ function App() {
                       setMovies((prev) => (prev.some((m) => m.imdbID === searchResult.imdbID) ? prev : [...prev, searchResult]));
                       setShowSearchModal(false);
                       setSearchQuery('');
+                      setSearchYear('');
+                      setSearchMongoResults(null);
                       setSearchResult(null);
                     } catch (err) {
                       setError(err.message);
