@@ -9,7 +9,8 @@
     "dev:vite": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "seed:users": "node scripts/seed-users.js"
+    "seed:users": "node scripts/seed-users.js",
+    "migrate:movies": "node scripts/migrate-movies-to-mongodb.js"
   },
   "dependencies": {
     "bootstrap": "^5.3.3",

@@ -1,9 +1,10 @@
 /**
  * GET /api/movies
- * Restituisce tutti i film dalla collection "movies" su MongoDB.
- * Query opzionale: ?imdbIDs=tt1,tt2 per filtrare per lista di ID.
+ * Restituisce film dalla collection "movies" su MongoDB.
+ * Query: ?ids=id1,id2 (MongoDB _id), ?imdbIDs=tt1,tt2, ?title=...
  */
 
+import { ObjectId } from 'mongodb';
 import client from '../lib/mongodb.js';
 
 export default async function handler(req, res) {
@@ -17,10 +18,15 @@ export default async function handler(req, res) {
     const db = client.db();
     const collection = db.collection('movies');
 
+    const idsParam = req.query.ids;
     const imdbIDs = req.query.imdbIDs;
     const title = req.query.title?.trim();
     let filter = {};
-    if (imdbIDs) {
+    if (idsParam) {
+      const idStrings = idsParam.split(',').map((s) => s.trim()).filter(Boolean);
+      const objectIds = idStrings.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id));
+      if (objectIds.length > 0) filter = { _id: { $in: objectIds } };
+    } else if (imdbIDs) {
       filter = { imdbID: { $in: imdbIDs.split(',').map((id) => id.trim()) } };
     } else if (title) {
       filter = { Title: { $regex: title, $options: 'i' } };

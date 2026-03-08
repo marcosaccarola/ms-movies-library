@@ -28,10 +28,16 @@ export default async function handler(req, res) {
   try {
     await client.connect();
     const db = client.db();
-    const collection = db.collection('users');
-    const result = await collection.updateOne(
+    const moviesColl = db.collection('movies');
+    const movieDoc = await moviesColl.findOne({ imdbID });
+    const movieId = movieDoc ? String(movieDoc._id) : null;
+    const update = movieId
+      ? { $addToSet: { moviesIds: { imdbID, movieId } } }
+      : { $addToSet: { moviesIds: { imdbID } } };
+    const usersColl = db.collection('users');
+    const result = await usersColl.updateOne(
       { username: { $regex: new RegExp(`^${username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
-      { $addToSet: { moviesIds: { imdbID } } }
+      update
     );
     if (result.matchedCount === 0) {
       return res.status(404).json({ error: 'User not found' });

@@ -29,7 +29,7 @@ async function fetchMovieByImdbId(imdbID) {
   const res = await fetch(`${OMDB_URL}?${params}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  if (data.Response === 'False') throw new Error(data.Error || 'Film non trovato');
+  if (data.Response === 'False') throw new Error(data.Error || 'Movie not found');
   return data;
 }
 
@@ -91,7 +91,7 @@ function UserBlock({ username, onLogout }) {
         <span className="small">{username}</span>
       </Dropdown.Toggle>
       <Dropdown.Menu>
-        <Dropdown.Item onClick={onLogout}>Esci</Dropdown.Item>
+        <Dropdown.Item onClick={onLogout}>Log out</Dropdown.Item>
       </Dropdown.Menu>
     </Dropdown>
   );
@@ -103,8 +103,8 @@ function AddFilmButton({ onClick }) {
       type="button"
       className="btn btn-link p-2 text-body-secondary text-decoration-none"
       onClick={onClick}
-      aria-label="Cerca e aggiungi film"
-      title="Cerca film"
+      aria-label="Search and add movie"
+      title="Search movie"
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="1.5rem" height="1.5rem" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
         <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" />
@@ -250,10 +250,10 @@ function App() {
     async function loadMovies() {
       try {
         const usersRes = await fetch('/api/users');
-        if (!usersRes.ok) throw new Error('Impossibile caricare gli utenti');
+        if (!usersRes.ok) throw new Error('Unable to load users');
         const contentType = usersRes.headers.get('Content-Type') || '';
         if (!contentType.includes('application/json')) {
-          throw new Error('L’API non ha restituito JSON. In locale usa "vercel dev" (non solo "npm run dev") e verifica che STORAGE_MONGODB_URI sia impostata.');
+          throw new Error('API did not return JSON. For local dev use "vercel dev" (or "npm run dev") and ensure STORAGE_MONGODB_URI is set.');
         }
         const users = await usersRes.json();
         const user = users?.find((u) => (u.username || '').toLowerCase() === currentUsername.trim().toLowerCase());
@@ -266,12 +266,34 @@ function App() {
         }
         localStorage.setItem(STORAGE_USERNAME_KEY, currentUsername);
         const moviesIds = user.moviesIds ?? [];
-        const ids = moviesIds.map((item) => item.imdbID).filter(Boolean);
-        if (ids.length === 0) {
+        const imdbIds = moviesIds.map((item) => (typeof item === 'string' ? item : item?.imdbID)).filter(Boolean);
+        if (imdbIds.length === 0) {
           setMovies([]);
           return;
         }
-        const results = await Promise.all(ids.map((id) => fetchMovieByImdbId(id)));
+        const mongoIds = moviesIds.map((item) => item?.movieId).filter(Boolean);
+        let mongoMap = {};
+        if (mongoIds.length > 0) {
+          const idsRes = await fetch(`/api/movies?ids=${encodeURIComponent(mongoIds.join(','))}`);
+          if (idsRes.ok) {
+            const mongoMovies = await idsRes.json();
+            mongoMovies.forEach((m) => { mongoMap[String(m._id)] = m; });
+          }
+        }
+        if (cancelled) return;
+        const results = [];
+        for (const item of moviesIds) {
+          const imdbID = typeof item === 'string' ? item : item?.imdbID;
+          const movieId = item?.movieId;
+          if (!imdbID) continue;
+          const fromMongo = movieId ? mongoMap[String(movieId)] : null;
+          if (fromMongo) {
+            results.push(fromMongo);
+          } else {
+            const fromOmdb = await fetchMovieByImdbId(imdbID);
+            if (!cancelled) results.push(fromOmdb);
+          }
+        }
         if (cancelled) return;
         setMovies(results);
       } catch (err) {
@@ -354,6 +376,13 @@ function App() {
     try {
       const film = await searchOmdbByTitle(q, searchYear);
       setSearchResult(film ?? null);
+      if (film?.imdbID) {
+        fetch('/api/movies/ensure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ film }),
+        }).catch(() => {});
+      }
     } catch {
       setSearchResult(null);
     } finally {
@@ -364,14 +393,14 @@ function App() {
   const searchModal = (
     <Modal show={showSearchModal} onHide={() => { setShowSearchModal(false); setSearchQuery(''); setSearchYear(''); setSearchMongoResults(null); setSearchResult(null); }} centered>
       <Modal.Header closeButton>
-        <Modal.Title>Cerca film</Modal.Title>
+        <Modal.Title>Search movie</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form.Group className="mb-3">
           <div className="d-flex gap-2 flex-wrap">
             <Form.Control
               type="text"
-              placeholder="Titolo del film..."
+              placeholder="Movie title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchOmdb(); } }}
@@ -381,22 +410,22 @@ function App() {
             />
             <Form.Control
               type="number"
-              placeholder="Anno"
+              placeholder="Year"
               min={SEARCH_YEAR_MIN}
               max={SEARCH_YEAR_MAX}
               value={searchYear}
               onChange={(e) => setSearchYear(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchOmdb(); } }}
               style={{ width: '5.5rem' }}
-              aria-label="Anno (opzionale)"
+              aria-label="Year (optional)"
             />
             <Button
               type="button"
               variant="outline-secondary"
               onClick={handleSearchOmdb}
               disabled={searchLoading || !searchQuery.trim()}
-              aria-label="Cerca su OMDB"
-              title="Cerca su OMDB"
+              aria-label="Search on OMDB"
+              title="Search on OMDB"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="1.25rem" height="1.25rem" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
                 <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z" />
@@ -404,38 +433,46 @@ function App() {
             </Button>
           </div>
         </Form.Group>
-        {searchLoading && <p className="text-body-secondary small">Ricerca in corso…</p>}
-        {!searchLoading && searchQuery.trim() && searchResult === null && <p className="text-body-secondary small">Nessun risultato.</p>}
+        {searchLoading && <p className="text-body-secondary small">Searching…</p>}
+        {!searchLoading && searchQuery.trim() && searchResult === null && <p className="text-body-secondary small">No results.</p>}
         {!searchLoading && searchResult && (
           <>
             <FilmDetails film={searchResult} stacked />
             {currentUsername && (
-              <div className="mt-3 text-end">
-                <Button
-                  variant="primary"
-                  onClick={async () => {
-                    if (!searchResult?.imdbID) return;
-                    try {
-                      const res = await fetch('/api/add-movie', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: currentUsername, imdbID: searchResult.imdbID }),
-                      });
-                      const data = await res.json().catch(() => ({}));
-                      if (!res.ok) throw new Error(data.error || 'Aggiunta non riuscita');
-                      setMovies((prev) => (prev.some((m) => m.imdbID === searchResult.imdbID) ? prev : [...prev, searchResult]));
-                      setShowSearchModal(false);
-                      setSearchQuery('');
-                      setSearchYear('');
-                      setSearchMongoResults(null);
-                      setSearchResult(null);
-                    } catch (err) {
-                      setError(err.message);
-                    }
-                  }}
-                >
-                  Add
-                </Button>
+              <div className="mt-3">
+                {movies.some((m) => m.imdbID === searchResult.imdbID) ? (
+                  <p className="text-body-secondary small mb-0 text-center">
+                    This film is already in {currentUsername}'s collection.
+                  </p>
+                ) : (
+                  <div className="text-end">
+                    <Button
+                      variant="primary"
+                      onClick={async () => {
+                        if (!searchResult?.imdbID) return;
+                        try {
+                          const res = await fetch('/api/add-movie', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username: currentUsername, imdbID: searchResult.imdbID }),
+                          });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) throw new Error(data.error || 'Failed to add');
+                          setMovies((prev) => (prev.some((m) => m.imdbID === searchResult.imdbID) ? prev : [...prev, searchResult]));
+                          setShowSearchModal(false);
+                          setSearchQuery('');
+                          setSearchYear('');
+                          setSearchMongoResults(null);
+                          setSearchResult(null);
+                        } catch (err) {
+                          setError(err.message);
+                        }
+                      }}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -451,16 +488,16 @@ function App() {
         <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
         <Form onSubmit={handleUsernameSubmit} className="mw-25">
           <Form.Group className="mb-2">
-            <Form.Label>Nome utente</Form.Label>
+            <Form.Label>Username</Form.Label>
             <Form.Control
               type="text"
               value={usernameInput}
               onChange={(e) => setUsernameInput(e.target.value)}
-              placeholder="es. sasha"
+              placeholder="e.g. sasha"
               autoFocus
             />
           </Form.Group>
-          <Button type="submit" variant="primary">Carica</Button>
+          <Button type="submit" variant="primary">Load</Button>
         </Form>
       </div>
       {searchModal}
@@ -473,7 +510,7 @@ function App() {
       <>
       <div className="container py-4">
         <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
-        <p className="text-body-secondary">Caricamento film in corso…</p>
+        <p className="text-body-secondary">Loading movies…</p>
       </div>
       {searchModal}
     </>
@@ -485,8 +522,8 @@ function App() {
       <>
       <div className="container py-4">
         <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
-        <p className="text-danger">Errore: {error}</p>
-        <Button variant="outline-secondary" onClick={() => { setError(null); localStorage.removeItem(STORAGE_USERNAME_KEY); setShowUsernameForm(true); setCurrentUsername(null); }}>Riprova</Button>
+        <p className="text-danger">Error: {error}</p>
+        <Button variant="outline-secondary" onClick={() => { setError(null); localStorage.removeItem(STORAGE_USERNAME_KEY); setShowUsernameForm(true); setCurrentUsername(null); }}>Try again</Button>
       </div>
       {searchModal}
     </>
@@ -498,8 +535,8 @@ function App() {
       <>
       <div className="container py-4">
         <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
-        <p className="text-body-secondary">Utente non trovato.</p>
-        <Button variant="outline-primary" onClick={() => { setUserNotFound(false); setShowUsernameForm(true); setCurrentUsername(null); }}>Inserisci un altro utente</Button>
+        <p className="text-body-secondary">User not found.</p>
+        <Button variant="outline-primary" onClick={() => { setUserNotFound(false); setShowUsernameForm(true); setCurrentUsername(null); }}>Enter another user</Button>
       </div>
       {searchModal}
     </>
@@ -541,7 +578,7 @@ function App() {
                       <FilmDetails film={film} />
                       <div className="position-absolute bottom-0 end-0 p-2">
                         <TrashIcon
-                          ariaLabel="Rimuovi dalla collezione"
+                          ariaLabel="Remove from collection"
                           onClick={() => setFilmToRemove({ imdbID: film.imdbID, Title: film.Title })}
                         />
                       </div>
@@ -565,7 +602,7 @@ function App() {
         </Modal.Body>
         <Modal.Footer className="d-flex justify-content-between w-100">
           <Button variant="secondary" onClick={() => setFilmToRemove(null)} disabled={removeLoading}>
-            Annulla
+            Cancel
           </Button>
           <Button
             variant="danger"
@@ -579,7 +616,7 @@ function App() {
                   body: JSON.stringify({ username: currentUsername, imdbID: filmToRemove.imdbID }),
                 });
                 const data = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error(data.error || `Rimozione non riuscita (${res.status})`);
+                if (!res.ok) throw new Error(data.error || `Failed to remove (${res.status})`);
                 setMovies((prev) => prev.filter((m) => m.imdbID !== filmToRemove.imdbID));
                 setFilmToRemove(null);
               } catch (err) {

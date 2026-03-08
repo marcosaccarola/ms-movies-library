@@ -5,6 +5,7 @@
  */
 import 'dotenv/config';
 import express from 'express';
+import { ObjectId } from 'mongodb';
 import client from './lib/mongodb.js';
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -39,10 +40,15 @@ app.get('/api/movies', async (req, res) => {
     await client.connect();
     const db = client.db();
     const collection = db.collection('movies');
+    const idsParam = req.query.ids;
     const imdbIDs = req.query.imdbIDs;
     const title = req.query.title?.trim();
     let filter = {};
-    if (imdbIDs) {
+    if (idsParam) {
+      const idStrings = idsParam.split(',').map((s) => s.trim()).filter(Boolean);
+      const objectIds = idStrings.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id));
+      if (objectIds.length > 0) filter = { _id: { $in: objectIds } };
+    } else if (imdbIDs) {
       filter = { imdbID: { $in: imdbIDs.split(',').map((id) => id.trim()) } };
     } else if (title) {
       filter = { Title: { $regex: title, $options: 'i' } };
@@ -58,6 +64,29 @@ app.get('/api/movies', async (req, res) => {
   }
 });
 
+app.post('/api/movies/ensure', async (req, res) => {
+  const film = req.body?.film;
+  if (!film || !film.imdbID) {
+    return res.status(400).json({ error: 'film.imdbID is required' });
+  }
+  try {
+    await client.connect();
+    const db = client.db();
+    const collection = db.collection('movies');
+    const existing = await collection.findOne({ imdbID: film.imdbID.trim() });
+    if (existing) {
+      return res.status(200).json({ ok: true, id: String(existing._id) });
+    }
+    const result = await collection.insertOne(film);
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(200).json({ ok: true, id: String(result.insertedId) });
+  } catch (err) {
+    console.error('[api/movies/ensure]', err);
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(500).json({ error: err.message || 'Errore di connessione al database' });
+  }
+});
+
 app.post('/api/add-movie', async (req, res) => {
   const username = req.body?.username?.trim();
   const imdbID = req.body?.imdbID?.trim();
@@ -67,10 +96,16 @@ app.post('/api/add-movie', async (req, res) => {
   try {
     await client.connect();
     const db = client.db();
-    const collection = db.collection('users');
-    const result = await collection.updateOne(
+    const moviesColl = db.collection('movies');
+    const movieDoc = await moviesColl.findOne({ imdbID });
+    const movieId = movieDoc ? String(movieDoc._id) : null;
+    const usersColl = db.collection('users');
+    const update = movieId
+      ? { $addToSet: { moviesIds: { imdbID, movieId } } }
+      : { $addToSet: { moviesIds: { imdbID } } };
+    const result = await usersColl.updateOne(
       { username: { $regex: new RegExp(`^${username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
-      { $addToSet: { moviesIds: { imdbID } } }
+      update
     );
     if (result.matchedCount === 0) {
       return res.status(404).json({ error: 'User not found' });
