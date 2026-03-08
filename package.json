@@ -6,16 +6,19 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed:users": "node scripts/seed-users.js"
   },
   "dependencies": {
     "bootstrap": "^5.3.3",
+    "mongodb": "^6.10.0",
     "react": "^18.3.1",
     "react-bootstrap": "^2.10.2",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.3",
+    "dotenv": "^16.4.5",
     "vite": "^5.4.10"
   }
 }

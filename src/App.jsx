@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import Accordion from 'react-bootstrap/Accordion';
-import movieIds from '../movieIds.json';
 
 const OMDB_API_KEY = import.meta.env.VITE_OMDB_API_KEY;
 const OMDB_URL = 'https://www.omdbapi.com/';
@@ -130,11 +129,31 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    const ids = movieIds.map((item) => item.imdbID);
-    Promise.all(ids.map((id) => fetchMovieByImdbId(id)))
-      .then((results) => setMovies(results))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+    async function loadMovies() {
+      try {
+        const usersRes = await fetch('/api/users');
+        if (!usersRes.ok) throw new Error('Impossibile caricare gli utenti');
+        const contentType = usersRes.headers.get('Content-Type') || '';
+        if (!contentType.includes('application/json')) {
+          throw new Error('L’API non ha restituito JSON. In locale usa "vercel dev" (non solo "npm run dev") e verifica che STORAGE_MONGODB_URI sia impostata.');
+        }
+        const users = await usersRes.json();
+        const user = users?.[0];
+        const moviesIds = user?.moviesIds ?? [];
+        const ids = moviesIds.map((item) => item.imdbID).filter(Boolean);
+        if (ids.length === 0) {
+          setMovies([]);
+          return;
+        }
+        const results = await Promise.all(ids.map((id) => fetchMovieByImdbId(id)));
+        setMovies(results);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadMovies();
   }, []);
 
   const byDirector = groupByDirector(movies);

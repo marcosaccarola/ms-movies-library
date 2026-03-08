@@ -1,0 +1,30 @@
+[
+    {
+        "_id": "1",
+        "username": "sasha",
+        "createdAt": "2026-03-08T10:00:00.000Z",
+        "updatedAt": "2026-03-08T10:00:00.000Z",
+        "moviesIds": [
+            {"imdbID":"tt0087884"},
+            {"imdbID":"tt27503384"},
+            {"imdbID":"tt12300742"},
+            {"imdbID":"tt22408160"},
+            {"imdbID":"tt14230458"},
+            {"imdbID":"tt5083738"},
+            {"imdbID":"tt0072684"},
+            {"imdbID":"tt1527793"},
+            {"imdbID":"tt0095327"},
+            {"imdbID":"tt0072443"},
+            {"imdbID":"tt17526714"},
+            {"imdbID":"tt0360556"},
+            {"imdbID":"tt0887883"},
+            {"imdbID":"tt3659388"},
+            {"imdbID":"tt0057012"},
+            {"imdbID":"tt0117951"},
+            {"imdbID":"tt0362270"},
+            {"imdbID":"tt0078748"},
+            {"imdbID":"tt0118884"}
+        ]
+        
+    }
+]
