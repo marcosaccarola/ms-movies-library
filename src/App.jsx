@@ -56,6 +56,29 @@ function ThemeToggle({ theme, onToggle }) {
   );
 }
 
+function UserBlock({ username, onChangeUser }) {
+  return (
+    <div className="d-flex flex-column align-items-end">
+      <svg xmlns="http://www.w3.org/2000/svg" width="1.5rem" height="1.5rem" fill="currentColor" viewBox="0 0 16 16" className="text-body-secondary" aria-hidden>
+        <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z" />
+      </svg>
+      <span className="small text-body-secondary">{username}</span>
+      {onChangeUser && (
+        <Button variant="link" className="p-0 small text-decoration-none" onClick={onChangeUser}>Cambia utente</Button>
+      )}
+    </div>
+  );
+}
+
+function TopBar({ theme, onThemeToggle, username, onChangeUser }) {
+  return (
+    <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+      <ThemeToggle theme={theme} onToggle={onThemeToggle} />
+      {username ? <UserBlock username={username} onChangeUser={onChangeUser} /> : <span />}
+    </div>
+  );
+}
+
 const RATING_ICONS = {
   'Internet Movie Database': 'https://www.google.com/s2/favicons?domain=imdb.com&sz=16',
   'Rotten Tomatoes': 'https://www.google.com/s2/favicons?domain=rottentomatoes.com&sz=16',
@@ -196,10 +219,7 @@ function App() {
   if (showUsernameForm) {
     return (
       <div className="container py-4">
-        <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-          <h1 className="mb-0">Sasha & Marco Movies</h1>
-          <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
-        </div>
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
         <Form onSubmit={handleUsernameSubmit} className="mw-25">
           <Form.Group className="mb-2">
             <Form.Label>Nome utente</Form.Label>
@@ -220,10 +240,7 @@ function App() {
   if (loading) {
     return (
       <div className="container py-4">
-        <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-          <h1 className="mb-0">Sasha & Marco Movies</h1>
-          <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
-        </div>
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
         <p className="text-body-secondary">Caricamento film in corso…</p>
       </div>
     );
@@ -232,10 +249,7 @@ function App() {
   if (error) {
     return (
       <div className="container py-4">
-        <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-          <h1 className="mb-0">Sasha & Marco Movies</h1>
-          <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
-        </div>
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
         <p className="text-danger">Errore: {error}</p>
         <Button variant="outline-secondary" onClick={() => { setError(null); setShowUsernameForm(true); setCurrentUsername(null); }}>Cambia utente</Button>
       </div>
@@ -245,10 +259,7 @@ function App() {
   if (userNotFound) {
     return (
       <div className="container py-4">
-        <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-          <h1 className="mb-0">Sasha & Marco Movies</h1>
-          <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
-        </div>
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
         <p className="text-body-secondary">Utente non trovato.</p>
         <Button variant="outline-primary" onClick={() => { setUserNotFound(false); setShowUsernameForm(true); setCurrentUsername(null); }}>Inserisci un altro utente</Button>
       </div>
@@ -257,14 +268,12 @@ function App() {
 
   return (
     <div className="container py-4">
-      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-        <h1 className="mb-0">Sasha & Marco Movies</h1>
-        <div className="d-flex align-items-center gap-2">
-          <span className="small text-body-secondary">{currentUsername}</span>
-          <Button variant="link" className="p-0 small text-decoration-none" onClick={() => { setShowUsernameForm(true); setCurrentUsername(null); setMovies([]); }}>Cambia utente</Button>
-          <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
-        </div>
-      </div>
+      <TopBar
+        theme={theme}
+        onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        username={currentUsername}
+        onChangeUser={() => { setShowUsernameForm(true); setCurrentUsername(null); setMovies([]); }}
+      />
       <Accordion
         activeKey={openDirector}
         onSelect={(key) => {
