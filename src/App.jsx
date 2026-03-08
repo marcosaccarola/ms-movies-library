@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Accordion from 'react-bootstrap/Accordion';
 import Button from 'react-bootstrap/Button';
-import Dropdown from 'react-bootstrap/Dropdown';
 import Form from 'react-bootstrap/Form';
 import Modal from 'react-bootstrap/Modal';
 
@@ -64,7 +63,7 @@ function ThemeToggle({ theme, onToggle }) {
   return (
     <button
       type="button"
-      className="btn btn-link p-2 text-body-secondary text-decoration-none btn-icon-hover"
+      className="btn btn-link p-2 text-body-secondary text-decoration-none border-0 shadow-none btn-icon-hover d-flex flex-column align-items-center"
       onClick={onToggle}
       aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
       title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
@@ -78,23 +77,44 @@ function ThemeToggle({ theme, onToggle }) {
           <path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z" />
         </svg>
       )}
+      <span className="small">theme</span>
     </button>
   );
 }
 
 function UserBlock({ username, onLogout }) {
+  const [showUserModal, setShowUserModal] = useState(false);
   return (
-    <Dropdown align="end">
-      <Dropdown.Toggle variant="link" className="d-flex flex-column align-items-end p-0 text-body-secondary text-decoration-none border-0 shadow-none" id="user-dropdown">
+    <>
+      <button
+        type="button"
+        className="btn btn-link p-2 text-body-secondary text-decoration-none border-0 shadow-none btn-icon-hover d-flex flex-column align-items-center"
+        onClick={() => setShowUserModal(true)}
+        aria-label="User menu"
+        title={username}
+      >
         <svg xmlns="http://www.w3.org/2000/svg" width="1.5rem" height="1.5rem" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
           <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z" />
         </svg>
         <span className="small">{username}</span>
-      </Dropdown.Toggle>
-      <Dropdown.Menu>
-        <Dropdown.Item onClick={onLogout}>Log out</Dropdown.Item>
-      </Dropdown.Menu>
-    </Dropdown>
+      </button>
+      <Modal show={showUserModal} onHide={() => setShowUserModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>{username}</Modal.Title>
+        </Modal.Header>
+        <Modal.Footer>
+          <Button
+            variant="outline-secondary"
+            onClick={() => {
+              setShowUserModal(false);
+              onLogout();
+            }}
+          >
+            Log out
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </>
   );
 }
 
@@ -102,7 +122,7 @@ function AddFilmButton({ onClick }) {
   return (
     <button
       type="button"
-      className="btn btn-link p-2 text-body-secondary text-decoration-none btn-icon-hover"
+      className="btn btn-link p-2 text-body-secondary text-decoration-none border-0 shadow-none btn-icon-hover d-flex flex-column align-items-center"
       onClick={onClick}
       aria-label="Search and add movie"
       title="Search movie"
@@ -110,6 +130,7 @@ function AddFilmButton({ onClick }) {
       <svg xmlns="http://www.w3.org/2000/svg" width="1.5rem" height="1.5rem" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
         <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" />
       </svg>
+      <span className="small">search</span>
     </button>
   );
 }
