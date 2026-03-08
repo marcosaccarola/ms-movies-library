@@ -6,6 +6,7 @@ import Form from 'react-bootstrap/Form';
 import Modal from 'react-bootstrap/Modal';
 
 const STORAGE_USERNAME_KEY = 'moviesLibraryUsername';
+const STORAGE_THEME_KEY = 'moviesLibraryTheme';
 
 const OMDB_API_KEY = import.meta.env.VITE_OMDB_API_KEY;
 const OMDB_URL = 'https://www.omdbapi.com/';
@@ -63,7 +64,7 @@ function ThemeToggle({ theme, onToggle }) {
   return (
     <button
       type="button"
-      className="btn btn-link p-2 text-body-secondary text-decoration-none"
+      className="btn btn-link p-2 text-body-secondary text-decoration-none btn-icon-hover"
       onClick={onToggle}
       aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
       title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
@@ -101,7 +102,7 @@ function AddFilmButton({ onClick }) {
   return (
     <button
       type="button"
-      className="btn btn-link p-2 text-body-secondary text-decoration-none"
+      className="btn btn-link p-2 text-body-secondary text-decoration-none btn-icon-hover"
       onClick={onClick}
       aria-label="Search and add movie"
       title="Search movie"
@@ -117,7 +118,7 @@ function TrashIcon({ onClick, ariaLabel }) {
   return (
     <button
       type="button"
-      className="btn btn-link p-1 text-body-secondary text-decoration-none"
+      className="btn btn-link p-1 text-body-secondary text-decoration-none btn-icon-hover"
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
       aria-label={ariaLabel}
       title={ariaLabel}
@@ -132,7 +133,7 @@ function TrashIcon({ onClick, ariaLabel }) {
 
 function TopBar({ theme, onThemeToggle, username, onLogout, onOpenSearch }) {
   return (
-    <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+    <div className="top-bar d-flex justify-content-between align-items-start flex-wrap gap-2">
       <ThemeToggle theme={theme} onToggle={onThemeToggle} />
       <div className="flex-grow-1 d-flex justify-content-center">
         <AddFilmButton onClick={onOpenSearch} />
@@ -151,7 +152,7 @@ const RATING_ICONS = {
 function FilmDetails({ film, stacked }) {
   const posterBlock = na(film.Poster) && (
     <div className={stacked ? 'text-center mb-3' : 'col-12 col-md-auto mb-2 mb-md-2 text-center'}>
-      <img src={film.Poster} alt={`Poster ${film.Title}`} className="rounded film-details-poster" style={{ maxHeight: '280px', width: 'auto' }} />
+      <img src={film.Poster} alt={`Poster ${film.Title}`} className={`rounded film-details-poster ${stacked ? 'film-details-poster-stacked' : ''}`} style={{ maxHeight: '280px', width: 'auto' }} />
     </div>
   );
   const contentBlock = (
@@ -215,8 +216,31 @@ function FilmDetails({ film, stacked }) {
   );
 }
 
+function MoviesLoadingSkeleton() {
+  return (
+    <div className="skeleton-accordion accordion" aria-hidden>
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="accordion-item">
+          <h2 className="accordion-header">
+            <button className="accordion-button collapsed" type="button" disabled tabIndex={-1}>
+              <span className="skeleton-line skeleton-title" style={{ width: '45%' }} />
+            </button>
+          </h2>
+          <div className="accordion-collapse">
+            <div className="accordion-body">
+              <div className="skeleton-line skeleton-text" />
+              <div className="skeleton-line skeleton-text short" />
+              <div className="skeleton-line skeleton-text" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function App() {
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(() => localStorage.getItem(STORAGE_THEME_KEY) || 'dark');
   const [showUsernameForm, setShowUsernameForm] = useState(() => !localStorage.getItem(STORAGE_USERNAME_KEY));
   const [usernameInput, setUsernameInput] = useState('');
   const [currentUsername, setCurrentUsername] = useState(() => localStorage.getItem(STORAGE_USERNAME_KEY) || null);
@@ -232,12 +256,21 @@ function App() {
   const [searchMongoResults, setSearchMongoResults] = useState(null);
   const [searchResult, setSearchResult] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [addMovieLoading, setAddMovieLoading] = useState(false);
   const [filmToRemove, setFilmToRemove] = useState(null);
   const [removeLoading, setRemoveLoading] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-bs-theme', theme);
+    localStorage.setItem(STORAGE_THEME_KEY, theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const t = setTimeout(() => setToastMessage(null), 2500);
+    return () => clearTimeout(t);
+  }, [toastMessage]);
 
   useEffect(() => {
     if (currentUsername == null) return;
@@ -400,7 +433,7 @@ function App() {
           <div className="d-flex gap-2 flex-wrap">
             <Form.Control
               type="text"
-              placeholder="Movie title..."
+              placeholder="Search our movies (by title)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchOmdb(); } }}
@@ -424,8 +457,8 @@ function App() {
               variant="outline-secondary"
               onClick={handleSearchOmdb}
               disabled={searchLoading || !searchQuery.trim()}
-              aria-label="Search on OMDB"
-              title="Search on OMDB"
+              aria-label="Search on the web"
+              title="Search on the web"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="1.25rem" height="1.25rem" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
                 <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z" />
@@ -448,8 +481,10 @@ function App() {
                   <div className="text-end">
                     <Button
                       variant="primary"
+                      disabled={addMovieLoading}
                       onClick={async () => {
                         if (!searchResult?.imdbID) return;
+                        setAddMovieLoading(true);
                         try {
                           const res = await fetch('/api/users', {
                             method: 'POST',
@@ -459,6 +494,7 @@ function App() {
                           const data = await res.json().catch(() => ({}));
                           if (!res.ok) throw new Error(data.error || 'Failed to add');
                           setMovies((prev) => (prev.some((m) => m.imdbID === searchResult.imdbID) ? prev : [...prev, searchResult]));
+                          setToastMessage('Movie added');
                           setShowSearchModal(false);
                           setSearchQuery('');
                           setSearchYear('');
@@ -466,10 +502,12 @@ function App() {
                           setSearchResult(null);
                         } catch (err) {
                           setError(err.message);
+                        } finally {
+                          setAddMovieLoading(false);
                         }
                       }}
                     >
-                      Add
+                      {addMovieLoading ? 'Adding…' : 'Add'}
                     </Button>
                   </div>
                 )}
@@ -484,7 +522,7 @@ function App() {
   if (showUsernameForm) {
     return (
       <>
-      <div className="container py-4">
+      <div className="container py-4 app-content">
         <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
         <Form onSubmit={handleUsernameSubmit} className="mw-25">
           <Form.Group className="mb-2">
@@ -508,9 +546,9 @@ function App() {
   if (loading) {
     return (
       <>
-      <div className="container py-4">
+      <div className="container py-4 app-content">
         <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
-        <p className="text-body-secondary">Loading movies…</p>
+        <MoviesLoadingSkeleton />
       </div>
       {searchModal}
     </>
@@ -520,9 +558,11 @@ function App() {
   if (error) {
     return (
       <>
-      <div className="container py-4">
+      <div className="container py-4 app-content">
         <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
-        <p className="text-danger">Error: {error}</p>
+        <div className="error-alert" role="alert">
+          <strong>Error:</strong> {error}
+        </div>
         <Button variant="outline-secondary" onClick={() => { setError(null); localStorage.removeItem(STORAGE_USERNAME_KEY); setShowUsernameForm(true); setCurrentUsername(null); }}>Try again</Button>
       </div>
       {searchModal}
@@ -533,7 +573,7 @@ function App() {
   if (userNotFound) {
     return (
       <>
-      <div className="container py-4">
+      <div className="container py-4 app-content">
         <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
         <p className="text-body-secondary">User not found.</p>
         <Button variant="outline-primary" onClick={() => { setUserNotFound(false); setShowUsernameForm(true); setCurrentUsername(null); }}>Enter another user</Button>
@@ -545,7 +585,7 @@ function App() {
 
   return (
     <>
-    <div className="container py-4">
+    <div className="container py-4 app-content">
       <TopBar
         theme={theme}
         onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -553,6 +593,12 @@ function App() {
         onLogout={() => { localStorage.removeItem(STORAGE_USERNAME_KEY); setShowUsernameForm(true); setCurrentUsername(null); setMovies([]); }}
         onOpenSearch={openSearchModal}
       />
+      {directors.length === 0 ? (
+        <div className="empty-state">
+          <p className="mb-0">Your collection is empty.</p>
+          <Button variant="primary" onClick={openSearchModal}>Search and add your first movie</Button>
+        </div>
+      ) : (
       <Accordion
         activeKey={openDirector}
         onSelect={(key) => {
@@ -573,7 +619,7 @@ function App() {
               >
                 {films.map((film, filmIndex) => (
                   <Accordion.Item key={film.imdbID} eventKey={String(filmIndex)}>
-                    <Accordion.Header>{film.Title}</Accordion.Header>
+                    <Accordion.Header>{film.Title}{film.Year ? ` (${film.Year})` : ''}</Accordion.Header>
                     <Accordion.Body className="position-relative">
                       <FilmDetails film={film} />
                       <div className="position-absolute bottom-0 end-0 p-2">
@@ -590,6 +636,7 @@ function App() {
           </Accordion.Item>
         ))}
       </Accordion>
+      )}
     </div>
     {searchModal}
       <Modal
@@ -598,7 +645,7 @@ function App() {
         centered
       >
         <Modal.Body>
-          Are you sure you want to remove this movie from your collection?
+          Are you sure you want to remove <strong>{filmToRemove?.Title ?? 'this movie'}</strong> from your collection?
         </Modal.Body>
         <Modal.Footer className="d-flex justify-content-between w-100">
           <Button variant="secondary" onClick={() => setFilmToRemove(null)} disabled={removeLoading}>
@@ -618,6 +665,7 @@ function App() {
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(data.error || `Failed to remove (${res.status})`);
                 setMovies((prev) => prev.filter((m) => m.imdbID !== filmToRemove.imdbID));
+                setToastMessage('Removed from collection');
                 setFilmToRemove(null);
               } catch (err) {
                 setError(err.message);
@@ -632,6 +680,11 @@ function App() {
           </Button>
         </Modal.Footer>
       </Modal>
+      {toastMessage && (
+        <div className="toast-feedback" role="status" aria-live="polite">
+          {toastMessage}
+        </div>
+      )}
     </>
   );
 }
