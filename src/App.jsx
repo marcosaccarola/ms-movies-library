@@ -133,7 +133,7 @@ function TrashIcon({ onClick, ariaLabel }) {
 function TopBar({ theme, onThemeToggle, username, onLogout, onOpenSearch }) {
   return (
     <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
-      <ThemeToggle theme={theme} onThemeToggle={onThemeToggle} />
+      <ThemeToggle theme={theme} onToggle={onThemeToggle} />
       <div className="flex-grow-1 d-flex justify-content-center">
         <AddFilmButton onClick={onOpenSearch} />
       </div>
@@ -377,10 +377,10 @@ function App() {
       const film = await searchOmdbByTitle(q, searchYear);
       setSearchResult(film ?? null);
       if (film?.imdbID) {
-        fetch('/api/movies/ensure', {
+        fetch('/api/movies', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ film }),
+          body: JSON.stringify({ action: 'ensure', film }),
         }).catch(() => {});
       }
     } catch {
@@ -451,10 +451,10 @@ function App() {
                       onClick={async () => {
                         if (!searchResult?.imdbID) return;
                         try {
-                          const res = await fetch('/api/add-movie', {
+                          const res = await fetch('/api/users', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username: currentUsername, imdbID: searchResult.imdbID }),
+                            body: JSON.stringify({ action: 'add-movie', username: currentUsername, imdbID: searchResult.imdbID }),
                           });
                           const data = await res.json().catch(() => ({}));
                           if (!res.ok) throw new Error(data.error || 'Failed to add');
@@ -610,10 +610,10 @@ function App() {
               if (!filmToRemove || !currentUsername) return;
               setRemoveLoading(true);
               try {
-                const res = await fetch('/api/remove-movie', {
+                const res = await fetch('/api/users', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ username: currentUsername, imdbID: filmToRemove.imdbID }),
+                  body: JSON.stringify({ action: 'remove-movie', username: currentUsername, imdbID: filmToRemove.imdbID }),
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(data.error || `Failed to remove (${res.status})`);
