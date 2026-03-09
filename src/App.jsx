@@ -186,7 +186,24 @@ function ViewToggle({ viewMode, onToggle }) {
   );
 }
 
-function TopBar({ theme, onThemeToggle, username, onLogout, onOpenSearch, viewMode, onViewToggle }) {
+function AIButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      className="btn btn-link p-2 text-body-secondary text-decoration-none border-0 shadow-none btn-icon-hover d-flex flex-column align-items-center"
+      onClick={onClick}
+      aria-label="AI assistant"
+      title="AI"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="1.5rem" height="1.5rem" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
+        <path d="M2 6a6 6 0 1 1 10.174 4.31c-.203.196-.359.4-.453.619l-.762 1.769A.5.5 0 0 1 10.5 13a.5.5 0 0 1 0 1 .5.5 0 0 1 0 1l-.224.447a1 1 0 0 1-.894.553H6.618a1 1 0 0 1-.894-.553L5.5 15a.5.5 0 0 1 0-1 .5.5 0 0 1 0-1 .5.5 0 0 1-.46-.302l-.761-1.77a2 2 0 0 0-.453-.618A5.98 5.98 0 0 1 2 6m6-5a5 5 0 0 0-3.479 8.592c.263.254.514.564.676.941L5.83 12h4.342l.632-1.467c.162-.377.413-.687.676-.941A5 5 0 0 0 8 1" />
+      </svg>
+      <span className="small">AI</span>
+    </button>
+  );
+}
+
+function TopBar({ theme, onThemeToggle, username, onLogout, onOpenSearch, viewMode, onViewToggle, onOpenAI }) {
   const hasViewToggle = onViewToggle != null;
   const hasUser = Boolean(username);
   return (
@@ -199,6 +216,9 @@ function TopBar({ theme, onThemeToggle, username, onLogout, onOpenSearch, viewMo
       </div>
       <div className="top-bar-icon-slot">
         {hasViewToggle ? <ViewToggle viewMode={viewMode} onToggle={onViewToggle} /> : <span />}
+      </div>
+      <div className="top-bar-icon-slot">
+        {onOpenAI != null ? <AIButton onClick={onOpenAI} /> : <span />}
       </div>
       <div className="top-bar-icon-slot">
         {hasUser ? <UserBlock username={username} onLogout={onLogout} /> : <span />}
@@ -363,6 +383,7 @@ function App() {
     setViewMode((m) => VIEW_MODES[(VIEW_MODES.indexOf(m) + 1) % VIEW_MODES.length]);
   }, []);
 
+  const [showAIModal, setShowAIModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchYear, setSearchYear] = useState('');
@@ -644,11 +665,22 @@ function App() {
     </Modal>
   );
 
+  const aiModal = (
+    <Modal show={showAIModal} onHide={() => setShowAIModal(false)} centered>
+      <Modal.Header closeButton>
+        <Modal.Title>AI</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <p className="mb-0 text-body-secondary">L&apos;agente di intelligenza artificiale è ancora in fase di progettazione.</p>
+      </Modal.Body>
+    </Modal>
+  );
+
   if (showUsernameForm) {
     return (
       <>
       <div className="container py-4 app-content">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} />
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} onOpenAI={() => setShowAIModal(true)} />
         <Form onSubmit={handleUsernameSubmit} className="mw-25">
           <Form.Group className="mb-2">
             <Form.Label>Username</Form.Label>
@@ -664,6 +696,7 @@ function App() {
         </Form>
       </div>
       {searchModal}
+      {aiModal}
     </>
     );
   }
@@ -672,10 +705,11 @@ function App() {
     return (
       <>
       <div className="container py-4 app-content">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} />
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} onOpenAI={() => setShowAIModal(true)} />
         <MoviesLoadingSkeleton />
       </div>
       {searchModal}
+      {aiModal}
     </>
     );
   }
@@ -684,13 +718,14 @@ function App() {
     return (
       <>
       <div className="container py-4 app-content">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} />
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} onOpenAI={() => setShowAIModal(true)} />
         <div className="error-alert" role="alert">
           <strong>Error:</strong> {error}
         </div>
         <Button variant="outline-secondary" onClick={() => { setError(null); localStorage.removeItem(STORAGE_USERNAME_KEY); setShowUsernameForm(true); setCurrentUsername(null); }}>Try again</Button>
       </div>
       {searchModal}
+      {aiModal}
     </>
     );
   }
@@ -699,11 +734,12 @@ function App() {
     return (
       <>
       <div className="container py-4 app-content">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} />
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} onOpenAI={() => setShowAIModal(true)} />
         <p className="text-body-secondary">User not found.</p>
         <Button variant="outline-primary" onClick={() => { setUserNotFound(false); setShowUsernameForm(true); setCurrentUsername(null); }}>Enter another user</Button>
       </div>
       {searchModal}
+      {aiModal}
     </>
     );
   }
@@ -719,6 +755,7 @@ function App() {
         onOpenSearch={openSearchModal}
         viewMode={viewMode}
         onViewToggle={handleViewToggle}
+        onOpenAI={() => setShowAIModal(true)}
       />
       {directors.length === 0 ? (
         <div className="empty-state">
@@ -837,6 +874,7 @@ function App() {
       )}
     </div>
     {searchModal}
+    {aiModal}
       <Modal
         show={filmToRemove != null}
         onHide={() => !removeLoading && setFilmToRemove(null)}
