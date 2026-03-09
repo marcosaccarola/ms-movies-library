@@ -369,6 +369,15 @@ function App() {
   const [openFlatFilmKey, setOpenFlatFilmKey] = useState(null);
   const [openGenre, setOpenGenre] = useState(null);
   const [openFilmByGenre, setOpenFilmByGenre] = useState({});
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsSmallScreen(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_VIEW_KEY, viewMode);
@@ -774,7 +783,7 @@ function App() {
             if (key != null) {
               const idx = typeof key === 'string' ? parseInt(key, 10) : key;
               const filmsOfDirector = directors[idx]?.[1] ?? [];
-              next[idx] = filmsOfDirector.length === 1 ? '0' : null;
+              next[idx] = filmsOfDirector.length === 1 && !isSmallScreen ? '0' : null;
             }
             return next;
           });
@@ -837,7 +846,7 @@ function App() {
             if (key != null) {
               const idx = typeof key === 'string' ? parseInt(key, 10) : key;
               const filmsOfGenre = genres[idx]?.[1] ?? [];
-              next[idx] = filmsOfGenre.length === 1 ? '0' : null;
+              next[idx] = filmsOfGenre.length === 1 && !isSmallScreen ? '0' : null;
             }
             return next;
           });
