@@ -171,6 +171,19 @@ body {
   --bs-btn-hover-border-color: #4f46e5;
 }
 
+/* Descrizione film: taglio a 3 righe, click per espandere */
+.film-plot {
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+  user-select: none;
+}
+.film-plot-collapsed {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .film-details-key {
   color: var(--bs-secondary-color);
   opacity: 0.75;

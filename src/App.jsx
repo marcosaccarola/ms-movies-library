@@ -171,6 +171,11 @@ const RATING_ICONS = {
 };
 
 function FilmDetails({ film, stacked }) {
+  const [plotExpanded, setPlotExpanded] = useState(false);
+  const [showMoreInfo, setShowMoreInfo] = useState(false);
+
+  const hasOtherInfo = [film.Rated, film.Writer, film.Actors, film.Language, film.Country, film.Awards, film.Type, film.DVD, film.BoxOffice, film.Production, film.Website].some((v) => na(v));
+
   const posterBlock = na(film.Poster) && (
     <div className={stacked ? 'text-center mb-3' : 'col-12 col-md-auto mb-2 mb-md-2 text-center'}>
       <img src={film.Poster} alt={`Poster ${film.Title}`} className={`rounded film-details-poster ${stacked ? 'film-details-poster-stacked' : ''}`} style={{ maxHeight: '280px', width: 'auto' }} />
@@ -178,23 +183,23 @@ function FilmDetails({ film, stacked }) {
   );
   const contentBlock = (
     <div className={stacked ? '' : 'col-12 col-md'}>
-          {na(film.Plot) && <p className="mb-2">{film.Plot}</p>}
+          {na(film.Plot) && (
+            <p
+              className={`film-plot mb-2 ${!plotExpanded ? 'film-plot-collapsed' : ''}`}
+              onClick={() => setPlotExpanded((v) => !v)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPlotExpanded((v) => !v); } }}
+              aria-expanded={plotExpanded}
+            >
+              {film.Plot}
+            </p>
+          )}
           <dl className="row mb-0 small">
-            {na(film.Rated) && (<><dt className="col-sm-3 film-details-key">Rated</dt><dd className="col-sm-9">{film.Rated}</dd></>)}
             {na(film.Released) && (<><dt className="col-sm-3 film-details-key">Released</dt><dd className="col-sm-9">{film.Released}</dd></>)}
             {na(film.Runtime) && (<><dt className="col-sm-3 film-details-key">Runtime</dt><dd className="col-sm-9">{film.Runtime}</dd></>)}
             {na(film.Genre) && (<><dt className="col-sm-3 film-details-key">Genre</dt><dd className="col-sm-9">{film.Genre}</dd></>)}
             {na(film.Director) && (<><dt className="col-sm-3 film-details-key">Director</dt><dd className="col-sm-9">{film.Director}</dd></>)}
-            {na(film.Writer) && (<><dt className="col-sm-3 film-details-key">Writer</dt><dd className="col-sm-9">{film.Writer}</dd></>)}
-            {na(film.Actors) && (<><dt className="col-sm-3 film-details-key">Actors</dt><dd className="col-sm-9">{film.Actors}</dd></>)}
-            {na(film.Language) && (<><dt className="col-sm-3 film-details-key">Language</dt><dd className="col-sm-9">{film.Language}</dd></>)}
-            {na(film.Country) && (<><dt className="col-sm-3 film-details-key">Country</dt><dd className="col-sm-9">{film.Country}</dd></>)}
-            {na(film.Awards) && (<><dt className="col-sm-3 film-details-key">Awards</dt><dd className="col-sm-9">{film.Awards}</dd></>)}
-            {na(film.Type) && (<><dt className="col-sm-3 film-details-key">Type</dt><dd className="col-sm-9">{film.Type}</dd></>)}
-            {na(film.DVD) && (<><dt className="col-sm-3 film-details-key">DVD</dt><dd className="col-sm-9">{film.DVD}</dd></>)}
-            {na(film.BoxOffice) && (<><dt className="col-sm-3 film-details-key">Box Office</dt><dd className="col-sm-9">{film.BoxOffice}</dd></>)}
-            {na(film.Production) && (<><dt className="col-sm-3 film-details-key">Production</dt><dd className="col-sm-9">{film.Production}</dd></>)}
-            {na(film.Website) && (<><dt className="col-sm-3 film-details-key">Website</dt><dd className="col-sm-9"><a href={film.Website} target="_blank" rel="noreferrer">{film.Website}</a></dd></>)}
           </dl>
           {(film.Ratings && film.Ratings.length > 0) && (
             <div className="mt-2">
@@ -211,13 +216,33 @@ function FilmDetails({ film, stacked }) {
               </ul>
             </div>
           )}
-          {/* {(na(film.Metascore) || na(film.imdbRating) || na(film.imdbVotes)) && (
-            <div className="mt-2 small">
-              {na(film.imdbRating) && <span className="me-3">IMDb: {film.imdbRating}/10</span>}
-              {na(film.imdbVotes) && <span className="me-3">Votes: {film.imdbVotes}</span>}
-              {na(film.Metascore) && <span>Metascore: {film.Metascore}</span>}
-            </div>
-          )} */}
+          {hasOtherInfo && (
+            <>
+              <button
+                type="button"
+                className="btn btn-link p-0 mt-2 small text-body-secondary text-decoration-none border-0 shadow-none"
+                onClick={() => setShowMoreInfo((v) => !v)}
+                aria-expanded={showMoreInfo}
+              >
+                {showMoreInfo ? 'Less info' : 'More info'}
+              </button>
+              {showMoreInfo && (
+                <dl className="row mb-0 small mt-1">
+                  {na(film.Rated) && (<><dt className="col-sm-3 film-details-key">Rated</dt><dd className="col-sm-9">{film.Rated}</dd></>)}
+                  {na(film.Writer) && (<><dt className="col-sm-3 film-details-key">Writer</dt><dd className="col-sm-9">{film.Writer}</dd></>)}
+                  {na(film.Actors) && (<><dt className="col-sm-3 film-details-key">Actors</dt><dd className="col-sm-9">{film.Actors}</dd></>)}
+                  {na(film.Language) && (<><dt className="col-sm-3 film-details-key">Language</dt><dd className="col-sm-9">{film.Language}</dd></>)}
+                  {na(film.Country) && (<><dt className="col-sm-3 film-details-key">Country</dt><dd className="col-sm-9">{film.Country}</dd></>)}
+                  {na(film.Awards) && (<><dt className="col-sm-3 film-details-key">Awards</dt><dd className="col-sm-9">{film.Awards}</dd></>)}
+                  {na(film.Type) && (<><dt className="col-sm-3 film-details-key">Type</dt><dd className="col-sm-9">{film.Type}</dd></>)}
+                  {na(film.DVD) && (<><dt className="col-sm-3 film-details-key">DVD</dt><dd className="col-sm-9">{film.DVD}</dd></>)}
+                  {na(film.BoxOffice) && (<><dt className="col-sm-3 film-details-key">Box Office</dt><dd className="col-sm-9">{film.BoxOffice}</dd></>)}
+                  {na(film.Production) && (<><dt className="col-sm-3 film-details-key">Production</dt><dd className="col-sm-9">{film.Production}</dd></>)}
+                  {na(film.Website) && (<><dt className="col-sm-3 film-details-key">Website</dt><dd className="col-sm-9"><a href={film.Website} target="_blank" rel="noreferrer">{film.Website}</a></dd></>)}
+                </dl>
+              )}
+            </>
+          )}
         </div>
   );
   return (
@@ -491,6 +516,10 @@ function App() {
         {!searchLoading && searchQuery.trim() && searchResult === null && <p className="text-body-secondary small">No results.</p>}
         {!searchLoading && searchResult && (
           <>
+            <h3 className="h5 mb-3">
+              {searchResult.Title}
+              {searchResult.Year ? ` (${searchResult.Year})` : ''}
+            </h3>
             <FilmDetails film={searchResult} stacked />
             {currentUsername && (
               <div className="mt-3">
@@ -623,10 +652,18 @@ function App() {
       <Accordion
         activeKey={openDirector}
         onSelect={(key) => {
-          if (openDirector !== null) {
-            setOpenFilmByDirector((prev) => ({ ...prev, [openDirector]: null }));
-          }
+          const prevDirector = openDirector;
           setOpenDirector(key);
+          setOpenFilmByDirector((prev) => {
+            const next = { ...prev };
+            if (prevDirector !== null) next[prevDirector] = null;
+            if (key != null) {
+              const idx = typeof key === 'string' ? parseInt(key, 10) : key;
+              const filmsOfDirector = directors[idx]?.[1] ?? [];
+              next[idx] = filmsOfDirector.length === 1 ? '0' : null;
+            }
+            return next;
+          });
         }}
       >
         {directors.map(([directorName, films], directorIndex) => (
