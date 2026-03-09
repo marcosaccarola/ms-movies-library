@@ -6,6 +6,7 @@ import Modal from 'react-bootstrap/Modal';
 
 const STORAGE_USERNAME_KEY = 'moviesLibraryUsername';
 const STORAGE_THEME_KEY = 'moviesLibraryTheme';
+const STORAGE_VIEW_KEY = 'moviesLibraryViewByDirector';
 
 const OMDB_API_KEY = import.meta.env.VITE_OMDB_API_KEY;
 const OMDB_URL = 'https://www.omdbapi.com/';
@@ -16,6 +17,21 @@ function groupByDirector(movies) {
     const director = film.Director.trim();
     if (!acc[director]) acc[director] = [];
     acc[director].push(film);
+    return acc;
+  }, {});
+}
+
+function groupByGenre(movies) {
+  return movies.reduce((acc, film) => {
+    if (!film) return acc;
+    const raw = film.Genre;
+    const genres = (raw && raw !== 'N/A')
+      ? raw.split(',').map((g) => g.trim()).filter(Boolean)
+      : ['Unknown'];
+    genres.forEach((genre) => {
+      if (!acc[genre]) acc[genre] = [];
+      acc[genre].push(film);
+    });
     return acc;
   }, {});
 }
@@ -152,14 +168,41 @@ function TrashIcon({ onClick, ariaLabel }) {
   );
 }
 
-function TopBar({ theme, onThemeToggle, username, onLogout, onOpenSearch }) {
+function ViewToggle({ viewMode, onToggle }) {
   return (
-    <div className="top-bar d-flex justify-content-between align-items-start flex-wrap gap-2">
-      <ThemeToggle theme={theme} onToggle={onThemeToggle} />
-      <div className="flex-grow-1 d-flex justify-content-center">
+    <button
+      type="button"
+      className="btn btn-link p-2 text-body-secondary text-decoration-none border-0 shadow-none btn-icon-hover d-flex flex-column align-items-center"
+      onClick={onToggle}
+      aria-label="Toggle view"
+      title="view"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="1.5rem" height="1.5rem" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
+        <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z" />
+        <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z" />
+      </svg>
+      <span className="small">view</span>
+    </button>
+  );
+}
+
+function TopBar({ theme, onThemeToggle, username, onLogout, onOpenSearch, viewMode, onViewToggle }) {
+  const hasViewToggle = onViewToggle != null;
+  const hasUser = Boolean(username);
+  return (
+    <div className="top-bar top-bar-icons">
+      <div className="top-bar-icon-slot">
+        <ThemeToggle theme={theme} onToggle={onThemeToggle} />
+      </div>
+      <div className="top-bar-icon-slot">
         <AddFilmButton onClick={onOpenSearch} />
       </div>
-      {username ? <UserBlock username={username} onLogout={onLogout} /> : <span />}
+      <div className="top-bar-icon-slot">
+        {hasViewToggle ? <ViewToggle viewMode={viewMode} onToggle={onViewToggle} /> : <span />}
+      </div>
+      <div className="top-bar-icon-slot">
+        {hasUser ? <UserBlock username={username} onLogout={onLogout} /> : <span />}
+      </div>
     </div>
   );
 }
@@ -296,6 +339,30 @@ function App() {
   const [userNotFound, setUserNotFound] = useState(false);
   const [openDirector, setOpenDirector] = useState(null);
   const [openFilmByDirector, setOpenFilmByDirector] = useState({});
+  const VIEW_MODES = ['directors', 'films', 'genres'];
+  const [viewMode, setViewMode] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_VIEW_KEY);
+    if (stored === 'false') return 'films';
+    if (stored === 'true') return 'directors';
+    return VIEW_MODES.includes(stored) ? stored : 'directors';
+  });
+  const [openFlatFilmKey, setOpenFlatFilmKey] = useState(null);
+  const [openGenre, setOpenGenre] = useState(null);
+  const [openFilmByGenre, setOpenFilmByGenre] = useState({});
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_VIEW_KEY, viewMode);
+  }, [viewMode]);
+
+  const handleViewToggle = useCallback(() => {
+    setOpenDirector(null);
+    setOpenFilmByDirector({});
+    setOpenFlatFilmKey(null);
+    setOpenGenre(null);
+    setOpenFilmByGenre({});
+    setViewMode((m) => VIEW_MODES[(VIEW_MODES.indexOf(m) + 1) % VIEW_MODES.length]);
+  }, []);
+
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchYear, setSearchYear] = useState('');
@@ -446,6 +513,14 @@ function App() {
       name,
       [...films].sort((a, b) => (parseInt(a.Year, 10) || 0) - (parseInt(b.Year, 10) || 0)),
     ]);
+  const filmsByYear = [...movies].sort((a, b) => (parseInt(a.Year, 10) || 0) - (parseInt(b.Year, 10) || 0));
+  const byGenre = groupByGenre(movies);
+  const genres = Object.entries(byGenre)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, films]) => [
+      name,
+      [...films].sort((a, b) => (parseInt(a.Year, 10) || 0) - (parseInt(b.Year, 10) || 0)),
+    ]);
 
   const handleSearchOmdb = useCallback(async () => {
     const q = searchQuery.trim();
@@ -573,7 +648,7 @@ function App() {
     return (
       <>
       <div className="container py-4 app-content">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} />
         <Form onSubmit={handleUsernameSubmit} className="mw-25">
           <Form.Group className="mb-2">
             <Form.Label>Username</Form.Label>
@@ -597,7 +672,7 @@ function App() {
     return (
       <>
       <div className="container py-4 app-content">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} />
         <MoviesLoadingSkeleton />
       </div>
       {searchModal}
@@ -609,7 +684,7 @@ function App() {
     return (
       <>
       <div className="container py-4 app-content">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} />
         <div className="error-alert" role="alert">
           <strong>Error:</strong> {error}
         </div>
@@ -624,7 +699,7 @@ function App() {
     return (
       <>
       <div className="container py-4 app-content">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} />
+        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} />
         <p className="text-body-secondary">User not found.</p>
         <Button variant="outline-primary" onClick={() => { setUserNotFound(false); setShowUsernameForm(true); setCurrentUsername(null); }}>Enter another user</Button>
       </div>
@@ -642,13 +717,15 @@ function App() {
         username={currentUsername}
         onLogout={() => { localStorage.removeItem(STORAGE_USERNAME_KEY); setShowUsernameForm(true); setCurrentUsername(null); setMovies([]); }}
         onOpenSearch={openSearchModal}
+        viewMode={viewMode}
+        onViewToggle={handleViewToggle}
       />
       {directors.length === 0 ? (
         <div className="empty-state">
           <p className="mb-0">Your collection is empty.</p>
           <Button variant="primary" onClick={openSearchModal}>Search and add your first movie</Button>
         </div>
-      ) : (
+      ) : viewMode === 'directors' ? (
       <Accordion
         activeKey={openDirector}
         onSelect={(key) => {
@@ -677,6 +754,69 @@ function App() {
               >
                 {films.map((film, filmIndex) => (
                   <Accordion.Item key={film.imdbID} eventKey={String(filmIndex)}>
+                    <Accordion.Header>{film.Title}{film.Year ? ` (${film.Year})` : ''}</Accordion.Header>
+                    <Accordion.Body className="position-relative">
+                      <FilmDetails film={film} />
+                      <div className="position-absolute bottom-0 end-0 p-2">
+                        <TrashIcon
+                          ariaLabel="Remove from collection"
+                          onClick={() => setFilmToRemove({ imdbID: film.imdbID, Title: film.Title })}
+                        />
+                      </div>
+                    </Accordion.Body>
+                  </Accordion.Item>
+                ))}
+              </Accordion>
+            </Accordion.Body>
+          </Accordion.Item>
+        ))}
+      </Accordion>
+      ) : viewMode === 'films' ? (
+      <Accordion activeKey={openFlatFilmKey} onSelect={(key) => setOpenFlatFilmKey(key)}>
+        {filmsByYear.map((film, index) => (
+          <Accordion.Item key={film.imdbID} eventKey={String(index)}>
+            <Accordion.Header>{film.Title}{film.Year ? ` (${film.Year})` : ''}</Accordion.Header>
+            <Accordion.Body className="position-relative">
+              <FilmDetails film={film} />
+              <div className="position-absolute bottom-0 end-0 p-2">
+                <TrashIcon
+                  ariaLabel="Remove from collection"
+                  onClick={() => setFilmToRemove({ imdbID: film.imdbID, Title: film.Title })}
+                />
+              </div>
+            </Accordion.Body>
+          </Accordion.Item>
+        ))}
+      </Accordion>
+      ) : (
+      <Accordion
+        activeKey={openGenre}
+        onSelect={(key) => {
+          const prevGenre = openGenre;
+          setOpenGenre(key);
+          setOpenFilmByGenre((prev) => {
+            const next = { ...prev };
+            if (prevGenre !== null) next[prevGenre] = null;
+            if (key != null) {
+              const idx = typeof key === 'string' ? parseInt(key, 10) : key;
+              const filmsOfGenre = genres[idx]?.[1] ?? [];
+              next[idx] = filmsOfGenre.length === 1 ? '0' : null;
+            }
+            return next;
+          });
+        }}
+      >
+        {genres.map(([genreName, films], genreIndex) => (
+          <Accordion.Item key={genreName} eventKey={String(genreIndex)}>
+            <Accordion.Header>{genreName}</Accordion.Header>
+            <Accordion.Body>
+              <Accordion
+                flush
+                activeKey={openFilmByGenre[genreIndex] ?? null}
+                onSelect={(key) => setOpenFilmByGenre((prev) => ({ ...prev, [genreIndex]: key }))}
+              >
+                {films.map((film, filmIndex) => (
+                  <Accordion.Item key={`${film.imdbID}-${genreIndex}`} eventKey={String(filmIndex)}>
                     <Accordion.Header>{film.Title}{film.Year ? ` (${film.Year})` : ''}</Accordion.Header>
                     <Accordion.Body className="position-relative">
                       <FilmDetails film={film} />

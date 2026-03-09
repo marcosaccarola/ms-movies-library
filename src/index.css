@@ -26,13 +26,30 @@ body {
   margin-right: auto;
 }
 
-/* Header anonimo: bordo e sfondo sottile */
+/* Header: bordo e sfondo sottile; 4 icone equidistanti */
 .top-bar {
   padding-bottom: 0.75rem;
   margin-bottom: 1.5rem;
   border-bottom: 1px solid var(--bs-border-color);
   background: var(--bs-body-bg);
   transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.top-bar-icons {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-evenly;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.top-bar-icon-slot {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 /* Pulsanti icona: hover visibile */
