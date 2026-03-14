@@ -7,10 +7,13 @@
     "dev": "node server.js",
     "build": "node -e \"console.log('Backend: no build step')\"",
     "seed:users": "node scripts/seed-users.js",
-    "migrate:movies": "node scripts/migrate-movies-to-mongodb.js"
+    "migrate:movies": "node scripts/migrate-movies-to-mongodb.js",
+    "migrate:user-auth": "node scripts/migrate-user-auth.js"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.10.0",
     "ms-movies-library": "file:.."
   },

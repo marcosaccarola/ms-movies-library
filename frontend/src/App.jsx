@@ -4,17 +4,71 @@ import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Modal from 'react-bootstrap/Modal';
 
-const STORAGE_USERNAME_KEY = 'moviesLibraryUsername';
+const STORAGE_ACCESS_TOKEN_KEY = 'moviesLibraryAccessToken';
+const STORAGE_REFRESH_TOKEN_KEY = 'moviesLibraryRefreshToken';
 const STORAGE_THEME_KEY = 'moviesLibraryTheme';
 const STORAGE_VIEW_KEY = 'moviesLibraryViewByDirector';
 
+const SESSION_EXPIRED = 'SESSION_EXPIRED';
+
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const API_KEY = import.meta.env.VITE_PUBLIC_API_KEY || '';
+
+function getStoredTokens() {
+  return {
+    accessToken: localStorage.getItem(STORAGE_ACCESS_TOKEN_KEY),
+    refreshToken: localStorage.getItem(STORAGE_REFRESH_TOKEN_KEY),
+  };
+}
+
+function setStoredTokens(accessToken, refreshToken) {
+  if (accessToken) localStorage.setItem(STORAGE_ACCESS_TOKEN_KEY, accessToken);
+  if (refreshToken) localStorage.setItem(STORAGE_REFRESH_TOKEN_KEY, refreshToken);
+}
+
+function clearStoredTokens() {
+  localStorage.removeItem(STORAGE_ACCESS_TOKEN_KEY);
+  localStorage.removeItem(STORAGE_REFRESH_TOKEN_KEY);
+}
 
 /** fetch verso il backend con header X-API-Key per offuscamento */
 function apiFetch(url, options = {}) {
   const headers = { ...options.headers, 'X-API-Key': API_KEY };
   return fetch(url, { ...options, headers });
+}
+
+/** fetch autenticato: aggiunge Bearer, su 401 prova refresh e ritenta; se il refresh fallisce lancia SESSION_EXPIRED e rimuove i token. */
+async function authFetch(url, options = {}) {
+  const { accessToken, refreshToken } = getStoredTokens();
+  const doRequest = (token) => {
+    const headers = {
+      ...options.headers,
+      'X-API-Key': API_KEY,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    return fetch(url, { ...options, headers });
+  };
+  let res = await doRequest(accessToken);
+  if (res.status === 401 && refreshToken) {
+    const refreshRes = await apiFetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (refreshRes.ok) {
+      const data = await refreshRes.json();
+      setStoredTokens(data.accessToken, data.refreshToken);
+      res = await doRequest(data.accessToken);
+    } else {
+      clearStoredTokens();
+      throw new Error(SESSION_EXPIRED);
+    }
+  }
+  if (res.status === 401) {
+    clearStoredTokens();
+    throw new Error(SESSION_EXPIRED);
+  }
+  return res;
 }
 
 function groupByDirector(movies) {
@@ -353,13 +407,17 @@ function MoviesLoadingSkeleton() {
 
 function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem(STORAGE_THEME_KEY) || 'dark');
-  const [showUsernameForm, setShowUsernameForm] = useState(() => !localStorage.getItem(STORAGE_USERNAME_KEY));
-  const [usernameInput, setUsernameInput] = useState('');
-  const [currentUsername, setCurrentUsername] = useState(() => localStorage.getItem(STORAGE_USERNAME_KEY) || null);
+  const [user, setUser] = useState(null);
+  const [showLoginForm, setShowLoginForm] = useState(true);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState(null);
+  const [showRegister, setShowRegister] = useState(false);
+  const [registerUsername, setRegisterUsername] = useState('');
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [userNotFound, setUserNotFound] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [openDirector, setOpenDirector] = useState(null);
   const [openFilmByDirector, setOpenFilmByDirector] = useState({});
   const VIEW_MODES = ['directors', 'films', 'genres'];
@@ -418,36 +476,52 @@ function App() {
     return () => clearTimeout(t);
   }, [toastMessage]);
 
+  // All'avvio: se ci sono token, recupera l'utente con GET /api/auth/me
   useEffect(() => {
-    if (currentUsername == null) return;
+    const { accessToken, refreshToken } = getStoredTokens();
+    if (!accessToken && !refreshToken) {
+      setAuthChecked(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authFetch(`${API_BASE}/api/auth/me`);
+        if (cancelled) return;
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Errore caricamento utente');
+        }
+        const me = await res.json();
+        setUser(me);
+        setShowLoginForm(false);
+      } catch (err) {
+        if (cancelled) return;
+        if (err.message === SESSION_EXPIRED) setShowLoginForm(true);
+        else setError(err.message);
+      } finally {
+        if (!cancelled) setAuthChecked(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
+  // Carica i film quando l'utente è impostato (da /api/auth/me)
+  useEffect(() => {
+    if (!user?.moviesIds) {
+      if (user && !user.moviesIds) setMovies([]);
+      return;
+    }
+    const moviesIds = user.moviesIds;
     let cancelled = false;
     setLoading(true);
     setError(null);
-    setUserNotFound(false);
-
-    async function loadMovies() {
+    (async () => {
       try {
-        const usersRes = await apiFetch(`${API_BASE}/api/users`);
-        if (!usersRes.ok) throw new Error('Unable to load users');
-        const contentType = usersRes.headers.get('Content-Type') || '';
-        if (!contentType.includes('application/json')) {
-          throw new Error('API did not return JSON. For local dev use "npm run dev" from root and ensure backend .env has STORAGE_MONGODB_URI.');
-        }
-        const users = await usersRes.json();
-        const user = users?.find((u) => (u.username || '').toLowerCase() === currentUsername.trim().toLowerCase());
-        if (cancelled) return;
-        if (!user) {
-          localStorage.removeItem(STORAGE_USERNAME_KEY);
-          setUserNotFound(true);
-          setMovies([]);
-          return;
-        }
-        localStorage.setItem(STORAGE_USERNAME_KEY, currentUsername);
-        const moviesIds = user.moviesIds ?? [];
         const imdbIds = moviesIds.map((item) => (typeof item === 'string' ? item : item?.imdbID)).filter(Boolean);
         if (imdbIds.length === 0) {
           setMovies([]);
+          if (!cancelled) setLoading(false);
           return;
         }
         const mongoIds = moviesIds.map((item) => item?.movieId).filter(Boolean);
@@ -480,17 +554,79 @@ function App() {
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }
-    loadMovies();
+    })();
     return () => { cancelled = true; };
-  }, [currentUsername]);
+  }, [user]);
 
-  const handleUsernameSubmit = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const name = usernameInput.trim();
-    if (!name) return;
-    setShowUsernameForm(false);
-    setCurrentUsername(name);
+    const email = loginEmail.trim().toLowerCase();
+    const password = loginPassword;
+    if (!email || !password) {
+      setLoginError('Email e password sono obbligatori');
+      return;
+    }
+    setLoginError(null);
+    try {
+      const res = await apiFetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Login fallito');
+      setStoredTokens(data.accessToken, data.refreshToken);
+      const meRes = await authFetch(`${API_BASE}/api/auth/me`);
+      if (!meRes.ok) throw new Error('Errore caricamento profilo');
+      const me = await meRes.json();
+      setUser(me);
+      setShowLoginForm(false);
+      setLoginPassword('');
+    } catch (err) {
+      setLoginError(err.message);
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    const email = loginEmail.trim().toLowerCase();
+    const password = loginPassword;
+    if (!email || !password) {
+      setLoginError('Email e password sono obbligatori');
+      return;
+    }
+    if (password.length < 6) {
+      setLoginError('La password deve avere almeno 6 caratteri');
+      return;
+    }
+    setLoginError(null);
+    try {
+      const res = await apiFetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, username: registerUsername.trim() || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Registrazione fallita');
+      const loginRes = await apiFetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const loginData = await loginRes.json().catch(() => ({}));
+      if (!loginRes.ok) throw new Error(loginData.error || 'Login dopo registrazione fallito');
+      setStoredTokens(loginData.accessToken, loginData.refreshToken);
+      const meRes = await authFetch(`${API_BASE}/api/auth/me`);
+      if (!meRes.ok) throw new Error('Errore caricamento profilo');
+      const me = await meRes.json();
+      setUser(me);
+      setShowRegister(false);
+      setShowLoginForm(false);
+      setLoginPassword('');
+      setRegisterUsername('');
+    } catch (err) {
+      setLoginError(err.message);
+    }
   };
 
   const openSearchModal = useCallback(() => {
@@ -629,11 +765,11 @@ function App() {
               {searchResult.Year ? ` (${searchResult.Year})` : ''}
             </h3>
             <FilmDetails film={searchResult} stacked />
-            {currentUsername && (
+            {user && (
               <div className="mt-3">
                 {movies.some((m) => m.imdbID === searchResult.imdbID) ? (
                   <p className="text-body-secondary small mb-0 text-center">
-                    This film is already in {currentUsername}'s collection.
+                    Questo film è già nella tua collezione.
                   </p>
                 ) : (
                   <div className="text-end">
@@ -644,28 +780,29 @@ function App() {
                         if (!searchResult?.imdbID) return;
                         setAddMovieLoading(true);
                         try {
-                          const res = await apiFetch(`${API_BASE}/api/users`, {
+                          const res = await authFetch(`${API_BASE}/api/users`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'add-movie', username: currentUsername, imdbID: searchResult.imdbID }),
+                            body: JSON.stringify({ action: 'add-movie', imdbID: searchResult.imdbID }),
                           });
                           const data = await res.json().catch(() => ({}));
-                          if (!res.ok) throw new Error(data.error || 'Failed to add');
+                          if (!res.ok) throw new Error(data.error || 'Aggiunta fallita');
                           setMovies((prev) => (prev.some((m) => m.imdbID === searchResult.imdbID) ? prev : [...prev, searchResult]));
-                          setToastMessage('Movie added');
+                          setToastMessage('Film aggiunto');
                           setShowSearchModal(false);
                           setSearchQuery('');
                           setSearchYear('');
                           setSearchMongoResults(null);
                           setSearchResult(null);
                         } catch (err) {
-                          setError(err.message);
+                          if (err.message === SESSION_EXPIRED) handleLogout();
+                          else setError(err.message);
                         } finally {
                           setAddMovieLoading(false);
                         }
                       }}
                     >
-                      {addMovieLoading ? 'Adding…' : 'Add'}
+                      {addMovieLoading ? 'Aggiunta…' : 'Aggiungi'}
                     </Button>
                   </div>
                 )}
@@ -688,71 +825,138 @@ function App() {
     </Modal>
   );
 
-  if (showUsernameForm) {
+  const displayName = user ? (user.email || user.username || '') : '';
+  const handleLogout = () => {
+    const { refreshToken } = getStoredTokens();
+    if (refreshToken) {
+      apiFetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      }).catch(() => {});
+    }
+    clearStoredTokens();
+    setUser(null);
+    setShowLoginForm(true);
+    setMovies([]);
+  };
+
+  if (!authChecked) {
+    return (
+      <div className="container py-4 app-content">
+        <p className="text-body-secondary">Caricamento…</p>
+      </div>
+    );
+  }
+
+  if (showLoginForm) {
     return (
       <>
-      <div className="container py-4 app-content">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} onOpenAI={() => setShowAIModal(true)} />
-        <Form onSubmit={handleUsernameSubmit} className="mw-25">
-          <Form.Group className="mb-2">
-            <Form.Label>Username</Form.Label>
-            <Form.Control
-              type="text"
-              value={usernameInput}
-              onChange={(e) => setUsernameInput(e.target.value)}
-              placeholder="e.g. sasha"
-              autoFocus
-            />
-          </Form.Group>
-          <Button type="submit" variant="primary">Load</Button>
-        </Form>
-      </div>
-      {searchModal}
-      {aiModal}
-    </>
+        <div className="container py-4 app-content">
+          <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} onOpenAI={() => setShowAIModal(true)} />
+          {showRegister ? (
+            <Form onSubmit={handleRegister} className="mw-25">
+              <h2 className="h4 mb-3">Crea utente</h2>
+              <Form.Group className="mb-2">
+                <Form.Label>Email *</Form.Label>
+                <Form.Control
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => { setLoginEmail(e.target.value); setLoginError(null); }}
+                  placeholder="es. nome@email.com"
+                  autoFocus
+                  required
+                />
+              </Form.Group>
+              <Form.Group className="mb-2">
+                <Form.Label>Password * (min. 6 caratteri)</Form.Label>
+                <Form.Control
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => { setLoginPassword(e.target.value); setLoginError(null); }}
+                  placeholder="••••••••"
+                  required
+                />
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Username (opzionale)</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={registerUsername}
+                  onChange={(e) => setRegisterUsername(e.target.value)}
+                  placeholder="es. mionome"
+                />
+              </Form.Group>
+              {loginError && <p className="text-danger small mb-2">{loginError}</p>}
+              <div className="d-flex gap-2 flex-wrap">
+                <Button type="submit" variant="primary">Registrati</Button>
+                <Button type="button" variant="outline-secondary" onClick={() => { setShowRegister(false); setLoginError(null); }}>Torna al login</Button>
+              </div>
+            </Form>
+          ) : (
+            <Form onSubmit={handleLogin} className="mw-25">
+              <h2 className="h4 mb-3">Accedi</h2>
+              <Form.Group className="mb-2">
+                <Form.Label>Email *</Form.Label>
+                <Form.Control
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => { setLoginEmail(e.target.value); setLoginError(null); }}
+                  placeholder="es. nome@email.com"
+                  autoFocus
+                  required
+                />
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Password *</Form.Label>
+                <Form.Control
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => { setLoginPassword(e.target.value); setLoginError(null); }}
+                  placeholder="••••••••"
+                  required
+                />
+              </Form.Group>
+              {loginError && <p className="text-danger small mb-2">{loginError}</p>}
+              <div className="d-flex gap-2 flex-wrap align-items-center">
+                <Button type="submit" variant="primary">Accedi</Button>
+                <Button type="button" variant="outline-primary" onClick={() => { setShowRegister(true); setLoginError(null); }}>Crea utente</Button>
+              </div>
+            </Form>
+          )}
+        </div>
+        {searchModal}
+        {aiModal}
+      </>
     );
   }
 
   if (loading) {
     return (
       <>
-      <div className="container py-4 app-content">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} onOpenAI={() => setShowAIModal(true)} />
-        <MoviesLoadingSkeleton />
-      </div>
-      {searchModal}
-      {aiModal}
-    </>
+        <div className="container py-4 app-content">
+          <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} username={displayName} onLogout={handleLogout} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} onOpenAI={() => setShowAIModal(true)} />
+          <MoviesLoadingSkeleton />
+        </div>
+        {searchModal}
+        {aiModal}
+      </>
     );
   }
 
   if (error) {
     return (
       <>
-      <div className="container py-4 app-content">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} onOpenAI={() => setShowAIModal(true)} />
-        <div className="error-alert" role="alert">
-          <strong>Error:</strong> {error}
+        <div className="container py-4 app-content">
+          <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} username={displayName} onLogout={handleLogout} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} onOpenAI={() => setShowAIModal(true)} />
+          <div className="error-alert" role="alert">
+            <strong>Errore:</strong> {error}
+          </div>
+          <Button variant="outline-secondary" onClick={() => { setError(null); clearStoredTokens(); setUser(null); setShowLoginForm(true); }}>Riprova</Button>
         </div>
-        <Button variant="outline-secondary" onClick={() => { setError(null); localStorage.removeItem(STORAGE_USERNAME_KEY); setShowUsernameForm(true); setCurrentUsername(null); }}>Try again</Button>
-      </div>
-      {searchModal}
-      {aiModal}
-    </>
-    );
-  }
-
-  if (userNotFound) {
-    return (
-      <>
-      <div className="container py-4 app-content">
-        <TopBar theme={theme} onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onOpenSearch={openSearchModal} viewMode={viewMode} onViewToggle={handleViewToggle} onOpenAI={() => setShowAIModal(true)} />
-        <p className="text-body-secondary">User not found.</p>
-        <Button variant="outline-primary" onClick={() => { setUserNotFound(false); setShowUsernameForm(true); setCurrentUsername(null); }}>Enter another user</Button>
-      </div>
-      {searchModal}
-      {aiModal}
-    </>
+        {searchModal}
+        {aiModal}
+      </>
     );
   }
 
@@ -762,8 +966,8 @@ function App() {
       <TopBar
         theme={theme}
         onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-        username={currentUsername}
-        onLogout={() => { localStorage.removeItem(STORAGE_USERNAME_KEY); setShowUsernameForm(true); setCurrentUsername(null); setMovies([]); }}
+        username={displayName}
+        onLogout={handleLogout}
         onOpenSearch={openSearchModal}
         viewMode={viewMode}
         onViewToggle={handleViewToggle}
@@ -771,8 +975,8 @@ function App() {
       />
       {directors.length === 0 ? (
         <div className="empty-state">
-          <p className="mb-0">Your collection is empty.</p>
-          <Button variant="primary" onClick={openSearchModal}>Search and add your first movie</Button>
+          <p className="mb-0">La tua collezione è vuota.</p>
+          <Button variant="primary" onClick={openSearchModal}>Cerca e aggiungi il tuo primo film</Button>
         </div>
       ) : viewMode === 'directors' ? (
       <Accordion
@@ -893,30 +1097,31 @@ function App() {
         centered
       >
         <Modal.Body>
-          Are you sure you want to remove <strong>{filmToRemove?.Title ?? 'this movie'}</strong> from your collection?
+          Rimuovere <strong>{filmToRemove?.Title ?? 'questo film'}</strong> dalla collezione?
         </Modal.Body>
         <Modal.Footer className="d-flex justify-content-between w-100">
           <Button variant="secondary" onClick={() => setFilmToRemove(null)} disabled={removeLoading}>
-            Cancel
+            Annulla
           </Button>
           <Button
             variant="danger"
             onClick={async () => {
-              if (!filmToRemove || !currentUsername) return;
+              if (!filmToRemove || !user) return;
               setRemoveLoading(true);
               try {
-                const res = await apiFetch(`${API_BASE}/api/users`, {
+                const res = await authFetch(`${API_BASE}/api/users`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ action: 'remove-movie', username: currentUsername, imdbID: filmToRemove.imdbID }),
+                  body: JSON.stringify({ action: 'remove-movie', imdbID: filmToRemove.imdbID }),
                 });
                 const data = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error(data.error || `Failed to remove (${res.status})`);
+                if (!res.ok) throw new Error(data.error || `Rimozione fallita (${res.status})`);
                 setMovies((prev) => prev.filter((m) => m.imdbID !== filmToRemove.imdbID));
-                setToastMessage('Removed from collection');
+                setToastMessage('Rimosso dalla collezione');
                 setFilmToRemove(null);
               } catch (err) {
-                setError(err.message);
+                if (err.message === SESSION_EXPIRED) handleLogout();
+                else setError(err.message);
                 setFilmToRemove(null);
               } finally {
                 setRemoveLoading(false);
@@ -924,7 +1129,7 @@ function App() {
             }}
             disabled={removeLoading}
           >
-            Yes
+            Sì
           </Button>
         </Modal.Footer>
       </Modal>
