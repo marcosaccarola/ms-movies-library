@@ -6,6 +6,7 @@
 import 'dotenv/config';
 import express from 'express';
 import { ObjectId } from 'mongodb';
+import { GoogleGenAI } from '@google/genai';
 import client from './lib/mongodb.js';
 import * as auth from './lib/auth.js';
 
@@ -13,6 +14,15 @@ const PORT = Number(process.env.PORT) || 3000;
 const OMDB_API_KEY = process.env.OMDB_API_KEY;
 const PUBLIC_API_KEY = process.env.PUBLIC_API_KEY;
 const OMDB_URL = 'https://www.omdbapi.com/';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const AI_RATE_LIMIT_MS = 60 * 1000; // 1 richiesta al minuto
+const AI_MAX_TURNS = 20;
+
+const AI_SYSTEM_INSTRUCTION = `Sei l'assistente di un'app per la collezione personale di film. I tuoi compiti sono:
+1. Suggerire film in base alle preferenze dell'utente e ai film già presenti nel suo profilo.
+2. Essere esperto sulle tematiche trattate nei film, cogliendo anche le sfumature.
+3. Fornire curiosità sui film.
+Rispondi in italiano, in modo conciso e utile.`;
 
 const app = express();
 
@@ -248,6 +258,126 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
     return res.status(200).json(out);
   } catch (err) {
     console.error('[api/auth/me]', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Helper: filtro per query su users (supporta _id ObjectId o stringa tipo "1")
+function userFilter(userId) {
+  const id = String(userId);
+  if (/^[a-f0-9]{24}$/i.test(id)) return { _id: new ObjectId(id) };
+  return { _id: id };
+}
+
+// GET /api/ai/chat/history - Ultimi 20 turni (40 messaggi) della chat AI, ordinati cronologicamente
+app.get('/api/ai/chat/history', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    await client.connect();
+    const db = client.db();
+    const coll = db.collection('aiChatMessages');
+    const list = await coll
+      .find({ userId: String(userId) })
+      .sort({ createdAt: 1 })
+      .limit(40)
+      .toArray();
+    const items = list.map((m) => ({ role: m.role, content: m.content, createdAt: m.createdAt }));
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(200).json(items);
+  } catch (err) {
+    console.error('[api/ai/chat/history]', err);
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/ai/chat - Invia messaggio e riceve risposta in streaming (SSE). Rate limit 1/min.
+app.post('/api/ai/chat', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const message = req.body?.message?.trim();
+  if (!message) {
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(400).json({ error: 'message è obbligatorio' });
+  }
+  if (!GEMINI_API_KEY) {
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(503).json({ error: 'GEMINI_API_KEY non configurata' });
+  }
+  try {
+    await client.connect();
+    const db = client.db();
+    const usersColl = db.collection('users');
+    const messagesColl = db.collection('aiChatMessages');
+    const user = await usersColl.findOne(userFilter(userId));
+    if (!user) {
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const now = Date.now();
+    const lastAt = user.lastAiRequestAt ? new Date(user.lastAiRequestAt).getTime() : 0;
+    if (now - lastAt < AI_RATE_LIMIT_MS) {
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(429).json({
+        error: 'Troppe richieste. Attendi un minuto tra un messaggio e l\'altro.',
+        retryAfter: Math.ceil((AI_RATE_LIMIT_MS - (now - lastAt)) / 1000),
+      });
+    }
+    const historyMessages = await messagesColl
+      .find({ userId: String(userId) })
+      .sort({ createdAt: 1 })
+      .limit(38)
+      .toArray();
+    const contents = historyMessages.map((m) => ({
+      role: m.role === 'model' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+    contents.push({ role: 'user', parts: [{ text: message }] });
+    let systemInstruction = AI_SYSTEM_INSTRUCTION;
+    const moviesIds = user.moviesIds || [];
+    const movieIds = moviesIds.map((m) => m?.movieId).filter((id) => id && ObjectId.isValid(id));
+    if (movieIds.length > 0) {
+      const moviesColl = db.collection('movies');
+      const movies = await moviesColl.find({ _id: { $in: movieIds.map((id) => new ObjectId(id)) } }).toArray();
+      const titles = movies.map((m) => m.Title).filter(Boolean);
+      if (titles.length > 0) {
+        systemInstruction += "\n\nL'utente ha in collezione i seguenti film: " + titles.join(', ') + ". Usali per personalizzare i suggerimenti.";
+      }
+    }
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    res.setHeader('Content-Type', 'application/x-ndjson');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders && res.flushHeaders();
+    let fullText = '';
+    try {
+      const stream = await ai.models.generateContentStream({
+        model: 'gemini-2.5-flash',
+        contents: contents,
+        config: { systemInstruction },
+      });
+      for await (const chunk of stream) {
+        const text = chunk.text ?? '';
+        fullText += text;
+        res.write(JSON.stringify({ t: text }) + '\n');
+      }
+    } catch (streamErr) {
+      res.write(JSON.stringify({ error: streamErr.message || 'Errore Gemini' }) + '\n');
+      res.write(JSON.stringify({ done: true }) + '\n');
+      res.end();
+      return;
+    }
+    const createdAt = new Date();
+    await messagesColl.insertMany([
+      { userId: String(userId), role: 'user', content: message, createdAt },
+      { userId: String(userId), role: 'model', content: fullText, createdAt },
+    ]);
+    await usersColl.updateOne(userFilter(userId), { $set: { lastAiRequestAt: createdAt } });
+    res.write(JSON.stringify({ done: true }) + '\n');
+    res.end();
+  } catch (err) {
+    console.error('[api/ai/chat]', err);
+    res.setHeader('Content-Type', 'application/json');
     return res.status(500).json({ error: err.message });
   }
 });

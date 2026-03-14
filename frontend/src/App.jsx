@@ -454,6 +454,11 @@ function App() {
   }, []);
 
   const [showAIModal, setShowAIModal] = useState(false);
+  const [aiMessages, setAiMessages] = useState([]);
+  const [aiInput, setAiInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStreamingContent, setAiStreamingContent] = useState('');
+  const [aiError, setAiError] = useState(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchYear, setSearchYear] = useState('');
@@ -475,6 +480,34 @@ function App() {
     const t = setTimeout(() => setToastMessage(null), 2500);
     return () => clearTimeout(t);
   }, [toastMessage]);
+
+  // Carica la history della chat AI quando si apre il modale
+  useEffect(() => {
+    if (!showAIModal || !user) return;
+    setAiError(null);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authFetch(`${API_BASE}/api/ai/chat/history`);
+        if (cancelled) return;
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Errore caricamento chat');
+        }
+        const list = await res.json();
+        setAiMessages(Array.isArray(list) ? list.map((m) => ({ role: m.role, content: m.content || '' })) : []);
+      } catch (err) {
+        if (!cancelled) {
+          if (err.message === SESSION_EXPIRED) {
+            clearStoredTokens();
+            setUser(null);
+            setShowLoginForm(true);
+          } else setAiError(err.message);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showAIModal, user]);
 
   // All'avvio: se ci sono token, recupera l'utente con GET /api/auth/me
   useEffect(() => {
@@ -814,13 +847,121 @@ function App() {
     </Modal>
   );
 
+  const handleAiSend = useCallback(async () => {
+    const text = aiInput.trim();
+    if (!text || aiLoading || !user) return;
+    setAiError(null);
+    setAiInput('');
+    setAiMessages((prev) => [...prev, { role: 'user', content: text }]);
+    setAiStreamingContent('');
+    setAiLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/api/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Errore ${res.status}`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullText = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const obj = JSON.parse(line);
+            if (obj.error) {
+              setAiError(obj.error);
+              setAiStreamingContent('');
+              setAiMessages((prev) => prev.slice(0, -1));
+              setAiLoading(false);
+              return;
+            }
+            if (obj.t != null) {
+              fullText += obj.t;
+              setAiStreamingContent(fullText);
+            }
+            if (obj.done) break;
+          } catch (_) {}
+        }
+      }
+      setAiMessages((prev) => [...prev, { role: 'model', content: fullText }]);
+    } catch (err) {
+      if (err.message === SESSION_EXPIRED) handleLogout();
+      else setAiError(err.message);
+      setAiMessages((prev) => prev.slice(0, -1));
+    } finally {
+      setAiStreamingContent('');
+      setAiLoading(false);
+    }
+  }, [aiInput, aiLoading, user]);
+
   const aiModal = (
-    <Modal show={showAIModal} onHide={() => setShowAIModal(false)} centered>
+    <Modal show={showAIModal} onHide={() => setShowAIModal(false)} centered size="lg">
       <Modal.Header closeButton>
-        <Modal.Title>AI</Modal.Title>
+        <Modal.Title>Chat con l&apos;assistente film</Modal.Title>
       </Modal.Header>
-      <Modal.Body>
-        <p className="mb-0 text-body-secondary">L&apos;agente di intelligenza artificiale è ancora in fase di progettazione.</p>
+      <Modal.Body className="d-flex flex-column" style={{ minHeight: '320px', maxHeight: '70vh' }}>
+        {aiError && (
+          <div className="alert alert-warning py-2 small mb-2" role="alert">
+            {aiError}
+          </div>
+        )}
+        <div className="flex-grow-1 overflow-auto mb-3 rounded border p-2" style={{ minHeight: '200px' }}>
+          {aiMessages.length === 0 && !aiStreamingContent && (
+            <p className="text-body-secondary small mb-0">Scrivi un messaggio per suggerimenti sui film, tematiche o curiosità.</p>
+          )}
+          {aiMessages.map((msg, i) => (
+            <div
+              key={i}
+              className={`mb-2 ${msg.role === 'user' ? 'text-end' : ''}`}
+            >
+              <span
+                className={`d-inline-block p-2 rounded text-start ${
+                  msg.role === 'user' ? 'bg-primary text-white' : 'bg-light text-dark'
+                }`}
+                style={{ maxWidth: '90%' }}
+              >
+                {msg.content}
+              </span>
+            </div>
+          ))}
+          {aiStreamingContent && (
+            <div className="mb-2 text-start">
+              <span className="d-inline-block p-2 rounded bg-light text-dark" style={{ maxWidth: '90%' }}>
+                {aiStreamingContent}
+              </span>
+            </div>
+          )}
+        </div>
+        <Form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleAiSend();
+          }}
+          className="d-flex gap-2"
+        >
+          <Form.Control
+            type="text"
+            placeholder="Scrivi un messaggio..."
+            value={aiInput}
+            onChange={(e) => setAiInput(e.target.value)}
+            disabled={aiLoading}
+            aria-label="Messaggio per l'assistente"
+          />
+          <Button type="submit" variant="primary" disabled={aiLoading || !aiInput.trim()}>
+            {aiLoading ? 'Invio…' : 'Invia'}
+          </Button>
+        </Form>
       </Modal.Body>
     </Modal>
   );
