@@ -16,8 +16,8 @@ import { MongoClient } from 'mongodb';
 import { hashPassword } from '../lib/auth.js';
 
 const STORAGE_MONGODB_URI = process.env.STORAGE_MONGODB_URI;
-const DEFAULT_EMAIL = process.env.MIGRATE_USER_EMAIL || 'sasha@example.com';
-const DEFAULT_PASSWORD = process.env.MIGRATE_USER_PASSWORD || 'changeme';
+const DEFAULT_EMAIL = process.env.MIGRATE_USER_EMAIL;
+const DEFAULT_PASSWORD = process.env.MIGRATE_USER_PASSWORD;
 
 if (!STORAGE_MONGODB_URI) {
   console.error('Imposta STORAGE_MONGODB_URI in backend/.env');
