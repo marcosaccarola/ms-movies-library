@@ -209,6 +209,11 @@ app.get('/api/omdb/search', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`[server] API in ascolto su http://127.0.0.1:${PORT}`);
-});
+// Su Vercel il runtime usa l'app come serverless; in locale avviamo il server
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`[server] API in ascolto su http://127.0.0.1:${PORT}`);
+  });
+}
+
+export default app;
