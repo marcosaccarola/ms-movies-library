@@ -15,20 +15,25 @@ const OMDB_URL = 'https://www.omdbapi.com/';
 
 const app = express();
 
-// CORS: necessario quando il frontend è su un altro dominio (es. deploy separati su Vercel)
-const corsOrigin = process.env.CORS_ORIGIN // || '*';
+// Origin CORS: non usare mai undefined (il browser rifiuta la preflight)
+const corsOrigin = process.env.CORS_ORIGIN || '*';
+
+// Preflight OPTIONS: gestito per primo, risposta 204 con header CORS validi (evita blocco CORS su Vercel)
+app.use((req, res, next) => {
+  if (req.method !== 'OPTIONS') return next();
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  return res.status(204).end();
+});
+
+// CORS per le risposte alle richieste GET/POST
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', corsOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
   res.setHeader('Access-Control-Max-Age', '86400');
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  next();
-});
-
-// Sicurezza: risposta esplicita a preflight OPTIONS (evita 405 su Vercel)
-app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') return res.status(204).end();
   next();
 });
 
