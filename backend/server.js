@@ -9,20 +9,17 @@ import { ObjectId } from 'mongodb';
 import { GoogleGenAI } from '@google/genai';
 import client from './lib/mongodb.js';
 import * as auth from './lib/auth.js';
-
-const PORT = Number(process.env.PORT) || 3000;
-const OMDB_API_KEY = process.env.OMDB_API_KEY;
-const PUBLIC_API_KEY = process.env.PUBLIC_API_KEY;
-const OMDB_URL = 'https://www.omdbapi.com/';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const AI_RATE_LIMIT_MS = 10 * 1000; // 1 richiesta ogni 10 secondi
-const AI_MAX_TURNS = 20;
-
-const AI_SYSTEM_INSTRUCTION = `Sei l'assistente di un'app per la collezione personale di film. I tuoi compiti sono:
-1. Suggerire film in base alle preferenze dell'utente e ai film già presenti nel suo profilo.
-2. Essere esperto sulle tematiche trattate nei film, cogliendo anche le sfumature.
-3. Fornire curiosità sui film.
-Rispondi in italiano, in modo conciso e utile.`;
+import {
+  PORT,
+  OMDB_API_KEY,
+  PUBLIC_API_KEY,
+  OMDB_URL,
+  GEMINI_API_KEY,
+  AI_RATE_LIMIT_MS,
+  AI_SYSTEM_INSTRUCTION,
+  AI_MAX_HISTORY_MESSAGES,
+  AI_HISTORY_MESSAGES_FOR_API,
+} from './lib/constants.js';
 
 const app = express();
 
@@ -279,7 +276,7 @@ app.get('/api/ai/chat/history', requireAuth, async (req, res) => {
     const list = await coll
       .find({ userId: String(userId) })
       .sort({ createdAt: 1 })
-      .limit(40)
+      .limit(AI_MAX_HISTORY_MESSAGES)
       .toArray();
     const items = list.map((m) => ({ role: m.role, content: m.content, createdAt: m.createdAt }));
     res.setHeader('Content-Type', 'application/json');
@@ -325,7 +322,7 @@ app.post('/api/ai/chat', requireAuth, async (req, res) => {
     const historyMessages = await messagesColl
       .find({ userId: String(userId) })
       .sort({ createdAt: 1 })
-      .limit(38)
+      .limit(AI_HISTORY_MESSAGES_FOR_API)
       .toArray();
     const contents = historyMessages.map((m) => ({
       role: m.role === 'model' ? 'model' : 'user',

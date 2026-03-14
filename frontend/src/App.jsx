@@ -3,16 +3,18 @@ import Accordion from 'react-bootstrap/Accordion';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Modal from 'react-bootstrap/Modal';
-
-const STORAGE_ACCESS_TOKEN_KEY = 'moviesLibraryAccessToken';
-const STORAGE_REFRESH_TOKEN_KEY = 'moviesLibraryRefreshToken';
-const STORAGE_THEME_KEY = 'moviesLibraryTheme';
-const STORAGE_VIEW_KEY = 'moviesLibraryViewByDirector';
-
-const SESSION_EXPIRED = 'SESSION_EXPIRED';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
-const API_KEY = import.meta.env.VITE_PUBLIC_API_KEY || '';
+import {
+  STORAGE_ACCESS_TOKEN_KEY,
+  STORAGE_REFRESH_TOKEN_KEY,
+  STORAGE_THEME_KEY,
+  STORAGE_VIEW_KEY,
+  SESSION_EXPIRED,
+  API_BASE,
+  API_KEY,
+  SEARCH_YEAR_MIN,
+  SEARCH_YEAR_MAX,
+  RATING_ICONS,
+} from './constants';
 
 function getStoredTokens() {
   return {
@@ -104,9 +106,6 @@ async function fetchMovieByImdbId(imdbID) {
   }
   return res.json();
 }
-
-const SEARCH_YEAR_MIN = 1901;
-const SEARCH_YEAR_MAX = 2050;
 
 function isValidSearchYear(value) {
   if (value === '' || value == null) return false;
@@ -283,12 +282,6 @@ function TopBar({ theme, onThemeToggle, username, onLogout, onOpenSearch, viewMo
     </div>
   );
 }
-
-const RATING_ICONS = {
-  'Internet Movie Database': 'https://www.google.com/s2/favicons?domain=imdb.com&sz=16',
-  'Rotten Tomatoes': 'https://www.google.com/s2/favicons?domain=rottentomatoes.com&sz=16',
-  'Metacritic': 'https://www.google.com/s2/favicons?domain=metacritic.com&sz=16',
-};
 
 function FilmDetails({ film, stacked }) {
   const [plotExpanded, setPlotExpanded] = useState(false);
