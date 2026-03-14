@@ -16,7 +16,7 @@ const OMDB_URL = 'https://www.omdbapi.com/';
 const app = express();
 
 // CORS: necessario quando il frontend è su un altro dominio (es. deploy separati su Vercel)
-const corsOrigin = process.env.CORS_ORIGIN || '*';
+const corsOrigin = process.env.CORS_ORIGIN // || '*';
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', corsOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -26,8 +26,15 @@ app.use((req, res, next) => {
   next();
 });
 
+// Sicurezza: risposta esplicita a preflight OPTIONS (evita 405 su Vercel)
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  next();
+});
+
 // API key di offuscamento: richiesta se PUBLIC_API_KEY è impostata (stesso valore in frontend con VITE_PUBLIC_API_KEY)
 app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') return next(); // la preflight non invia X-API-Key
   if (!PUBLIC_API_KEY) return next();
   const key = req.get('X-API-Key');
   if (key !== PUBLIC_API_KEY) {
