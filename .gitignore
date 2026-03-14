@@ -28,6 +28,9 @@ Thumbs.db
 !.env.example
 # Esplicito: mai pushare backend/.env o frontend/.env
 
+# Scripts (migrazioni / fix locali, non in repo)
+backend/scripts/
+
 # Other
 CONTEXT.md
 .vercel

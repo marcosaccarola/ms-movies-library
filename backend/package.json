@@ -8,7 +8,8 @@
     "build": "node -e \"console.log('Backend: no build step')\"",
     "seed:users": "node scripts/seed-users.js",
     "migrate:movies": "node scripts/migrate-movies-to-mongodb.js",
-    "migrate:user-auth": "node scripts/migrate-user-auth.js"
+    "migrate:user-auth": "node scripts/migrate-user-auth.js",
+    "fix:sasha-id": "node scripts/fix-sasha-id.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
