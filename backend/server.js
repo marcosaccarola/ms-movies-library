@@ -13,6 +13,16 @@ const OMDB_API_KEY = process.env.OMDB_API_KEY;
 const OMDB_URL = 'https://www.omdbapi.com/';
 
 const app = express();
+
+// CORS: necessario quando il frontend è su un altro dominio (es. deploy separati su Vercel)
+const corsOrigin = process.env.CORS_ORIGIN || '*';
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 app.use(express.json());
 
 function omdbGet(params) {
