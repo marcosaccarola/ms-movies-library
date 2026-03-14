@@ -15,8 +15,8 @@ const OMDB_URL = 'https://www.omdbapi.com/';
 
 const app = express();
 
-// Origin CORS: non usare mai undefined (il browser rifiuta la preflight)
-const corsOrigin = process.env.CORS_ORIGIN || '*';
+// Origin CORS: non usare mai undefined; senza barra finale per match con Origin del browser
+const corsOrigin = (process.env.CORS_ORIGIN || '*').replace(/\/$/, '');
 
 // Preflight OPTIONS: gestito per primo, risposta 204 con header CORS validi (evita blocco CORS su Vercel)
 app.use((req, res, next) => {
