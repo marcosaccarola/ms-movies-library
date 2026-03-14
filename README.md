@@ -33,8 +33,8 @@ npm install --prefix backend
 
 ## Variabili d’ambiente
 
-- **`frontend/.env`** — Opzionale in prod: `VITE_API_URL` se il backend è su altro dominio (in dev il proxy inoltra `/api` al backend).
-- **`backend/.env`** — `PORT` (default 3000), `STORAGE_MONGODB_URI` (MongoDB), `OMDB_API_KEY` (ricerca/dettaglio film: le chiamate a OMDB passano dal backend, la chiave non è esposta al frontend). Per lo script `migrate:movies`: stessa `OMDB_API_KEY`.
+- **`frontend/.env`** — Opzionale in prod: `VITE_API_URL` se il backend è su altro dominio. `VITE_PUBLIC_API_KEY`: chiave di offuscamento (stesso valore del backend), inviata in header su ogni richiesta.
+- **`backend/.env`** — `PORT`, `STORAGE_MONGODB_URI`, `OMDB_API_KEY`. `PUBLIC_API_KEY`: se impostata, tutte le richieste devono avere header `X-API-Key` con lo stesso valore (offuscamento; non è un segreto).
 - Copia da **`.env.example`** e compila i valori.
 
 ## Deploy (Vercel)
@@ -53,7 +53,7 @@ npm install --prefix backend
 
 - **File `.env`**: sono in `.gitignore` e **non devono essere mai pushati** su GitHub. Contengono `STORAGE_MONGODB_URI` e `OMDB_API_KEY`; tenerli solo in locale e, in produzione, impostarli come variabili d’ambiente in Vercel.
 - **Backend**: le chiavi sono lette solo lato server (`process.env`). Le API `/api/omdb/*` e `/api/movies` restituiscono solo dati (film, utenti); la chiave OMDB e l’URI MongoDB **non** vengono mai inviate al browser.
-- **Frontend**: nel bundle vanno solo variabili con prefisso `VITE_*`. Usiamo solo `VITE_API_URL` (URL del backend), che non è un segreto. Nessuna chiave API è esposta al client.
+- **Frontend**: nel bundle vanno solo variabili `VITE_*`. `VITE_API_URL` e `VITE_PUBLIC_API_KEY` non sono segreti (la key è uno strato di offuscamento: chi non la conosce non può chiamare l'API, ma è estraibile dal bundle).
 
 ## Autore
 

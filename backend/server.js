@@ -10,6 +10,7 @@ import client from './lib/mongodb.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const OMDB_API_KEY = process.env.OMDB_API_KEY;
+const PUBLIC_API_KEY = process.env.PUBLIC_API_KEY;
 const OMDB_URL = 'https://www.omdbapi.com/';
 
 const app = express();
@@ -19,11 +20,23 @@ const corsOrigin = process.env.CORS_ORIGIN // || '*';
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', corsOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
   res.setHeader('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') return res.status(204).end();
   next();
 });
+
+// API key di offuscamento: richiesta se PUBLIC_API_KEY è impostata (stesso valore in frontend con VITE_PUBLIC_API_KEY)
+app.use((req, res, next) => {
+  if (!PUBLIC_API_KEY) return next();
+  const key = req.get('X-API-Key');
+  if (key !== PUBLIC_API_KEY) {
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(401).json({ error: 'Invalid or missing X-API-Key' });
+  }
+  next();
+});
+
 app.use(express.json());
 
 function omdbGet(params) {

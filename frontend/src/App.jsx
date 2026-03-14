@@ -9,6 +9,13 @@ const STORAGE_THEME_KEY = 'moviesLibraryTheme';
 const STORAGE_VIEW_KEY = 'moviesLibraryViewByDirector';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_KEY = import.meta.env.VITE_PUBLIC_API_KEY || '';
+
+/** fetch verso il backend con header X-API-Key per offuscamento */
+function apiFetch(url, options = {}) {
+  const headers = { ...options.headers, 'X-API-Key': API_KEY };
+  return fetch(url, { ...options, headers });
+}
 
 function groupByDirector(movies) {
   return movies.reduce((acc, film) => {
@@ -36,7 +43,7 @@ function groupByGenre(movies) {
 }
 
 async function fetchMovieByImdbId(imdbID) {
-  const res = await fetch(`${API_BASE}/api/omdb/movie/${encodeURIComponent(imdbID)}`);
+  const res = await apiFetch(`${API_BASE}/api/omdb/movie/${encodeURIComponent(imdbID)}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `HTTP ${res.status}`);
@@ -57,7 +64,7 @@ function isValidSearchYear(value) {
 async function searchOmdbByTitle(title, year) {
   const params = new URLSearchParams({ title: title.trim() });
   if (isValidSearchYear(year)) params.set('year', String(year).trim());
-  const res = await fetch(`${API_BASE}/api/omdb/search?${params}`);
+  const res = await apiFetch(`${API_BASE}/api/omdb/search?${params}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `HTTP ${res.status}`);
@@ -421,7 +428,7 @@ function App() {
 
     async function loadMovies() {
       try {
-        const usersRes = await fetch(`${API_BASE}/api/users`);
+        const usersRes = await apiFetch(`${API_BASE}/api/users`);
         if (!usersRes.ok) throw new Error('Unable to load users');
         const contentType = usersRes.headers.get('Content-Type') || '';
         if (!contentType.includes('application/json')) {
@@ -446,7 +453,7 @@ function App() {
         const mongoIds = moviesIds.map((item) => item?.movieId).filter(Boolean);
         let mongoMap = {};
         if (mongoIds.length > 0) {
-          const idsRes = await fetch(`${API_BASE}/api/movies?ids=${encodeURIComponent(mongoIds.join(','))}`);
+          const idsRes = await apiFetch(`${API_BASE}/api/movies?ids=${encodeURIComponent(mongoIds.join(','))}`);
           if (idsRes.ok) {
             const mongoMovies = await idsRes.json();
             mongoMovies.forEach((m) => { mongoMap[String(m._id)] = m; });
@@ -502,7 +509,7 @@ function App() {
     const t = setTimeout(async () => {
       setSearchLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/api/movies?title=${encodeURIComponent(searchQuery.trim())}`);
+        const res = await apiFetch(`${API_BASE}/api/movies?title=${encodeURIComponent(searchQuery.trim())}`);
         const data = await res.json();
         setSearchMongoResults(Array.isArray(data) ? data : null);
       } catch {
@@ -557,7 +564,7 @@ function App() {
       const film = await searchOmdbByTitle(q, searchYear);
       setSearchResult(film ?? null);
       if (film?.imdbID) {
-        fetch(`${API_BASE}/api/movies`, {
+        apiFetch(`${API_BASE}/api/movies`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'ensure', film }),
@@ -637,7 +644,7 @@ function App() {
                         if (!searchResult?.imdbID) return;
                         setAddMovieLoading(true);
                         try {
-                          const res = await fetch(`${API_BASE}/api/users`, {
+                          const res = await apiFetch(`${API_BASE}/api/users`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ action: 'add-movie', username: currentUsername, imdbID: searchResult.imdbID }),
@@ -898,7 +905,7 @@ function App() {
               if (!filmToRemove || !currentUsername) return;
               setRemoveLoading(true);
               try {
-                const res = await fetch(`${API_BASE}/api/users`, {
+                const res = await apiFetch(`${API_BASE}/api/users`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ action: 'remove-movie', username: currentUsername, imdbID: filmToRemove.imdbID }),
