@@ -1,7 +1,7 @@
 /**
  * Server API locale per sviluppo.
- * Serve /api/users e /api/movies sulla porta 3000.
- * Con npm run dev, Vite fa proxy di /api verso questo server.
+ * Serve /api/users e /api/movies sulla porta 3000 (o PORT).
+ * Con npm run dev dalla root, il frontend (Vite) fa proxy di /api verso questo server.
  */
 import 'dotenv/config';
 import express from 'express';
@@ -9,8 +9,19 @@ import { ObjectId } from 'mongodb';
 import client from './lib/mongodb.js';
 
 const PORT = Number(process.env.PORT) || 3000;
+const OMDB_API_KEY = process.env.OMDB_API_KEY;
+const OMDB_URL = 'https://www.omdbapi.com/';
+
 const app = express();
 app.use(express.json());
+
+function omdbGet(params) {
+  if (!OMDB_API_KEY) {
+    return Promise.reject(new Error('OMDB_API_KEY non configurata nel backend. Imposta OMDB_API_KEY in backend/.env'));
+  }
+  const qs = new URLSearchParams({ apikey: OMDB_API_KEY, ...params });
+  return fetch(`${OMDB_URL}?${qs}`).then((r) => r.json());
+}
 
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -134,6 +145,56 @@ app.post('/api/movies', async (req, res) => {
     console.error('[api/movies] ensure', err);
     res.setHeader('Content-Type', 'application/json');
     return res.status(500).json({ error: err.message || 'Errore di connessione al database' });
+  }
+});
+
+app.get('/api/omdb/movie/:imdbID', async (req, res) => {
+  const imdbID = req.params.imdbID?.trim();
+  if (!imdbID) return res.status(400).json({ error: 'imdbID required' });
+  try {
+    const data = await omdbGet({ i: imdbID, plot: 'full' });
+    if (data.Response === 'False') {
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(404).json({ error: data.Error || 'Movie not found' });
+    }
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate');
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('[api/omdb/movie]', err);
+    res.setHeader('Content-Type', 'application/json');
+    const status = err.message?.includes('OMDB_API_KEY') ? 503 : 500;
+    return res.status(status).json({ error: err.message || 'Errore richiesta OMDB' });
+  }
+});
+
+app.get('/api/omdb/search', async (req, res) => {
+  const title = req.query.title?.trim();
+  if (!title) return res.status(400).json({ error: 'title required' });
+  const year = req.query.year?.trim();
+  const yearNum = year ? parseInt(year, 10) : NaN;
+  const hasYear = !Number.isNaN(yearNum) && yearNum >= 1901 && yearNum <= 2050;
+  try {
+    const params = { s: title };
+    if (hasYear) params.y = String(yearNum);
+    const data = await omdbGet(params);
+    if (data.Response === 'False' || !data.Search?.length) {
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(200).json(null);
+    }
+    const first = data.Search[0];
+    const detail = await omdbGet({ i: first.imdbID, plot: 'full' });
+    if (detail.Response === 'False') {
+      return res.status(200).json(null);
+    }
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate');
+    return res.status(200).json(detail);
+  } catch (err) {
+    console.error('[api/omdb/search]', err);
+    res.setHeader('Content-Type', 'application/json');
+    const status = err.message?.includes('OMDB_API_KEY') ? 503 : 500;
+    return res.status(status).json({ error: err.message || 'Errore richiesta OMDB' });
   }
 });
 

@@ -22,10 +22,11 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# Env
+# Env (NON committare: contengono chiavi segrete)
 .env
 .env.*
 !.env.example
+# Esplicito: mai pushare backend/.env o frontend/.env
 
 # Other
 CONTEXT.md

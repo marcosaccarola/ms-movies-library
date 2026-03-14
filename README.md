@@ -1,50 +1,60 @@
 # Movies Library
 
-Webapp React a singola pagina che mostra una libreria di film organizzata per regista, con accordion Bootstrap.
+Webapp React (frontend) + API Express (backend) in monorepo. Libreria di film per utente, con accordion per regista/genere/anno.
 
-- **Accordion esterno:** un item per ogni regista (header = nome regista).
-- **Accordion interno:** per ogni regista, un item per ogni film (header = titolo; body = genere, anno, rating).
+## Struttura
 
-I dati sono letti dal file `movies.json` nella root del progetto.
-
-## Autore
-
-[Marco Saccarola](https://github.com/marcosaccarola)
+- **`frontend/`** — Vite + React, Bootstrap. Build: `vite build`; output: `dist/`.
+- **`backend/`** — Express, MongoDB. API: `/api/users`, `/api/movies`. In dev ascolta sulla porta 3000.
+- **Root** — `package.json` con script `dev` per avviare frontend e backend insieme (concurrently).
 
 ## Setup
 
 ```bash
+# Dalla root: installa dipendenze root (concurrently)
 npm install
+
+# Installa dipendenze frontend e backend
+npm install --prefix frontend
+npm install --prefix backend
 ```
 
-## Script
+## Script (dalla root)
 
-- `npm run dev` — avvia il server di sviluppo (Vite)
-- `npm run build` — build per produzione
-- `npm run preview` — anteprima della build
+- **`npm run dev`** — avvia frontend e backend in parallelo.
+- **`npm run build:frontend`** — build del frontend (output in `frontend/dist/`), per deploy.
+- **`npm run build:backend`** — “build” del backend (no-op), per CI/deploy.
+- **`npm run version:sync`** — copia la `version` della root in `frontend/package.json` e `backend/package.json`.
 
-## MongoDB (integrazione Vercel)
+## Script per singolo servizio
 
-Il progetto può connettersi a MongoDB Atlas tramite l’[integrazione nativa Vercel](https://www.mongodb.com/docs/atlas/reference/partner-integrations/vercel/). Su Vercel, collega il progetto all’integrazione **MongoDB Atlas** e imposta la variabile **`STORAGE_MONGODB_URI`** (o usa il nome fornito dall’integrazione e adatta il codice).
+- **Frontend:** `cd frontend && npm run dev` (solo Vite) | `npm run build` | `npm run preview`
+- **Backend:** `cd backend && npm run dev` (solo Express) | `npm run seed:users` | `npm run migrate:movies`
 
-- **`lib/mongodb.js`** — client condiviso per le API (usa `STORAGE_MONGODB_URI`).
-- **`GET /api/users`** — restituisce gli utenti dalla collection `users`.
-- **`GET /api/movies`** — restituisce i film dalla collection `movies` (opzionale: `?imdbIDs=tt1,tt2`).
+## Variabili d’ambiente
 
-In locale, per provare le API insieme al frontend usa **`vercel dev`** (dopo `npm i -g vercel`). Imposta `STORAGE_MONGODB_URI` in `.env` per i test in locale.
+- **`frontend/.env`** — Opzionale in prod: `VITE_API_URL` se il backend è su altro dominio (in dev il proxy inoltra `/api` al backend).
+- **`backend/.env`** — `PORT` (default 3000), `STORAGE_MONGODB_URI` (MongoDB), `OMDB_API_KEY` (ricerca/dettaglio film: le chiamate a OMDB passano dal backend, la chiave non è esposta al frontend). Per lo script `migrate:movies`: stessa `OMDB_API_KEY`.
+- Copia da **`.env.example`** e compila i valori.
 
-## Pubblicare su GitHub
+## Deploy (Vercel)
 
-1. Crea un nuovo repository su [GitHub](https://github.com/marcosaccarola) (es. `ms-movies-library`).
-2. Inizializza git e collega il remote (se non già fatto):
+- **Progetto 1 (frontend):** Root Directory = `frontend`, Build Command = `npm run build`, Output = `dist`.
+- **Progetto 2 (backend):** Root Directory = `backend`. Configura l’esecuzione del server (es. Vercel Serverless o altro). Imposta `STORAGE_MONGODB_URI` e `OMDB_API_KEY` nelle **variabili d’ambiente** del progetto backend (Vercel Dashboard → Settings → Environment Variables). **Non** mettere le chiavi nel codice.
+- In produzione il frontend deve chiamare l’URL del backend (es. con `VITE_API_URL`).
 
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit: React Movies Library"
-   git branch -M main
-   git remote add origin https://github.com/marcosaccarola/ms-movies-library.git
-   git push -u origin main
-   ```
+## Versioning
 
-3. Per deploy su GitHub Pages (opzionale): usa ad esempio [vite-plugin-gh-pages](https://github.com/peaceiris/actions-gh-pages) o le GitHub Actions.
+- La **versione di release** è quella in **root** `package.json` (unica fonte di verità).
+- Dopo un bump con `npm version patch|minor|major` dalla root, esegui **`npm run version:sync`** per allineare `frontend` e `backend` alla stessa versione, poi committa i tre `package.json` se vuoi tenerli sincronizzati.
+- Su Vercel puoi usare la versione (o il tag Git) solo a scopo informativo; i deploy usano gli script `build` dei rispettivi package.
+
+## Sicurezza
+
+- **File `.env`**: sono in `.gitignore` e **non devono essere mai pushati** su GitHub. Contengono `STORAGE_MONGODB_URI` e `OMDB_API_KEY`; tenerli solo in locale e, in produzione, impostarli come variabili d’ambiente in Vercel.
+- **Backend**: le chiavi sono lette solo lato server (`process.env`). Le API `/api/omdb/*` e `/api/movies` restituiscono solo dati (film, utenti); la chiave OMDB e l’URI MongoDB **non** vengono mai inviate al browser.
+- **Frontend**: nel bundle vanno solo variabili con prefisso `VITE_*`. Usiamo solo `VITE_API_URL` (URL del backend), che non è un segreto. Nessuna chiave API è esposta al client.
+
+## Autore
+
+[Marco Saccarola](https://github.com/marcosaccarola)

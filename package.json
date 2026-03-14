@@ -2,28 +2,14 @@
   "name": "ms-movies-library",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
+  "description": "Monorepo: frontend (Vite/React) + backend (Express)",
   "scripts": {
-    "dev": "concurrently -n api,vite -c blue,green \"npm run dev:api\" \"vite\"",
-    "dev:api": "node server.js",
-    "dev:vite": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "seed:users": "node scripts/seed-users.js",
-    "migrate:movies": "node scripts/migrate-movies-to-mongodb.js"
-  },
-  "dependencies": {
-    "bootstrap": "^5.3.3",
-    "express": "^4.21.0",
-    "mongodb": "^6.10.0",
-    "react": "^18.3.1",
-    "react-bootstrap": "^2.10.2",
-    "react-dom": "^18.3.1"
+    "dev": "concurrently -n fe,be -c blue,green \"npm run dev --prefix frontend\" \"npm run dev --prefix backend\"",
+    "build:frontend": "npm run build --prefix frontend",
+    "build:backend": "npm run build --prefix backend",
+    "version:sync": "node scripts/sync-version.js"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.3",
-    "concurrently": "^9.0.1",
-    "dotenv": "^16.4.5",
-    "vite": "^5.4.10"
+    "concurrently": "^9.0.1"
   }
 }

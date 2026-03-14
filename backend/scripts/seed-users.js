@@ -1,6 +1,6 @@
 /**
  * Script per caricare gli utenti di exampleUsers.json nella collection "users" di MongoDB.
- * Eseguire da locale: node scripts/seed-users.js
+ * Eseguire da backend: npm run seed:users (oppure node scripts/seed-users.js)
  *
  * Richiede STORAGE_MONGODB_URI in .env (dotenv) oppure:
  *   STORAGE_MONGODB_URI="mongodb+srv://..." node scripts/seed-users.js
@@ -19,7 +19,7 @@ const __dirname = dirname(__filename);
 
 const STORAGE_MONGODB_URI = process.env.STORAGE_MONGODB_URI;
 if (!STORAGE_MONGODB_URI) {
-  console.error('Errore: imposta STORAGE_MONGODB_URI in .env o come variabile d’ambiente.');
+  console.error('Errore: imposta STORAGE_MONGODB_URI in .env o come variabile d\'ambiente.');
   process.exit(1);
 }
 

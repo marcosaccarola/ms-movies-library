@@ -1,0 +1,20 @@
+{
+  "name": "ms-movies-library-backend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "node -e \"console.log('Backend: no build step')\"",
+    "seed:users": "node scripts/seed-users.js",
+    "migrate:movies": "node scripts/migrate-movies-to-mongodb.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "mongodb": "^6.10.0",
+    "ms-movies-library": "file:.."
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5"
+  }
+}

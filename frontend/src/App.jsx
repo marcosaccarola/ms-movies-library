@@ -8,8 +8,7 @@ const STORAGE_USERNAME_KEY = 'moviesLibraryUsername';
 const STORAGE_THEME_KEY = 'moviesLibraryTheme';
 const STORAGE_VIEW_KEY = 'moviesLibraryViewByDirector';
 
-const OMDB_API_KEY = import.meta.env.VITE_OMDB_API_KEY;
-const OMDB_URL = 'https://www.omdbapi.com/';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 function groupByDirector(movies) {
   return movies.reduce((acc, film) => {
@@ -37,16 +36,12 @@ function groupByGenre(movies) {
 }
 
 async function fetchMovieByImdbId(imdbID) {
-  const params = new URLSearchParams({
-    apikey: OMDB_API_KEY,
-    i: imdbID,
-    plot: 'full',
-  });
-  const res = await fetch(`${OMDB_URL}?${params}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (data.Response === 'False') throw new Error(data.Error || 'Movie not found');
-  return data;
+  const res = await fetch(`${API_BASE}/api/omdb/movie/${encodeURIComponent(imdbID)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 const SEARCH_YEAR_MIN = 1901;
@@ -58,16 +53,17 @@ function isValidSearchYear(value) {
   return !Number.isNaN(y) && y >= SEARCH_YEAR_MIN && y <= SEARCH_YEAR_MAX;
 }
 
-/** Ricerca per titolo (e opzionalmente anno) su OMDB; restituisce il primo risultato con dettagli completi o null. */
+/** Ricerca per titolo (e opzionalmente anno) via backend OMDB; restituisce il primo risultato con dettagli completi o null. */
 async function searchOmdbByTitle(title, year) {
-  const params = new URLSearchParams({ apikey: OMDB_API_KEY, s: title.trim() });
-  if (isValidSearchYear(year)) params.set('y', String(year).trim());
-  const res = await fetch(`${OMDB_URL}?${params}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const params = new URLSearchParams({ title: title.trim() });
+  if (isValidSearchYear(year)) params.set('year', String(year).trim());
+  const res = await fetch(`${API_BASE}/api/omdb/search?${params}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
   const data = await res.json();
-  if (data.Response === 'False' || !data.Search?.length) return null;
-  const first = data.Search[0];
-  return fetchMovieByImdbId(first.imdbID);
+  return data ?? null;
 }
 
 function na(value) {
@@ -429,7 +425,7 @@ function App() {
         if (!usersRes.ok) throw new Error('Unable to load users');
         const contentType = usersRes.headers.get('Content-Type') || '';
         if (!contentType.includes('application/json')) {
-          throw new Error('API did not return JSON. For local dev use "vercel dev" (or "npm run dev") and ensure STORAGE_MONGODB_URI is set.');
+          throw new Error('API did not return JSON. For local dev use "npm run dev" from root and ensure backend .env has STORAGE_MONGODB_URI.');
         }
         const users = await usersRes.json();
         const user = users?.find((u) => (u.username || '').toLowerCase() === currentUsername.trim().toLowerCase());

@@ -5,8 +5,8 @@
  * - Ogni film ha _id (MongoDB) e imdbID (OMDB).
  * - Aggiorna l'utente: moviesIds diventa [ { imdbID, movieId: _id string }, ... ].
  *
- * Eseguire una sola volta: node scripts/migrate-movies-to-mongodb.js
- * Richiede .env con STORAGE_MONGODB_URI e OMDB_API_KEY (o VITE_OMDB_API_KEY).
+ * Eseguire da backend: npm run migrate:movies (oppure node scripts/migrate-movies-to-mongodb.js)
+ * Richiede .env con STORAGE_MONGODB_URI e OMDB_API_KEY.
  */
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
@@ -19,7 +19,7 @@ if (!process.env.STORAGE_MONGODB_URI) {
   process.exit(1);
 }
 if (!OMDB_API_KEY) {
-  console.error('Imposta OMDB_API_KEY o VITE_OMDB_API_KEY in .env');
+  console.error('Imposta OMDB_API_KEY in backend/.env');
   process.exit(1);
 }
 
