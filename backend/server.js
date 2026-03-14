@@ -15,7 +15,7 @@ const OMDB_API_KEY = process.env.OMDB_API_KEY;
 const PUBLIC_API_KEY = process.env.PUBLIC_API_KEY;
 const OMDB_URL = 'https://www.omdbapi.com/';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const AI_RATE_LIMIT_MS = 60 * 1000; // 1 richiesta al minuto
+const AI_RATE_LIMIT_MS = 10 * 1000; // 1 richiesta ogni 10 secondi
 const AI_MAX_TURNS = 20;
 
 const AI_SYSTEM_INSTRUCTION = `Sei l'assistente di un'app per la collezione personale di film. I tuoi compiti sono:
@@ -318,7 +318,7 @@ app.post('/api/ai/chat', requireAuth, async (req, res) => {
     if (now - lastAt < AI_RATE_LIMIT_MS) {
       res.setHeader('Content-Type', 'application/json');
       return res.status(429).json({
-        error: 'Troppe richieste. Attendi un minuto tra un messaggio e l\'altro.',
+        error: 'Troppe richieste. Attendi 10 secondi tra un messaggio e l\'altro.',
         retryAfter: Math.ceil((AI_RATE_LIMIT_MS - (now - lastAt)) / 1000),
       });
     }

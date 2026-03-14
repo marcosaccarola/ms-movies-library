@@ -863,6 +863,13 @@ function App() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (res.status === 429) {
+          const sec = data.retryAfter ?? 10;
+          setAiError(`Troppe richieste. Attendi ${sec} secondi prima di inviare un nuovo messaggio.`);
+          setAiMessages((prev) => prev.slice(0, -1));
+          setAiLoading(false);
+          return;
+        }
         throw new Error(data.error || `Errore ${res.status}`);
       }
       const reader = res.body.getReader();
