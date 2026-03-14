@@ -421,7 +421,7 @@ function App() {
 
     async function loadMovies() {
       try {
-        const usersRes = await fetch('/api/users');
+        const usersRes = await fetch(`${API_BASE}/api/users`);
         if (!usersRes.ok) throw new Error('Unable to load users');
         const contentType = usersRes.headers.get('Content-Type') || '';
         if (!contentType.includes('application/json')) {
@@ -446,7 +446,7 @@ function App() {
         const mongoIds = moviesIds.map((item) => item?.movieId).filter(Boolean);
         let mongoMap = {};
         if (mongoIds.length > 0) {
-          const idsRes = await fetch(`/api/movies?ids=${encodeURIComponent(mongoIds.join(','))}`);
+          const idsRes = await fetch(`${API_BASE}/api/movies?ids=${encodeURIComponent(mongoIds.join(','))}`);
           if (idsRes.ok) {
             const mongoMovies = await idsRes.json();
             mongoMovies.forEach((m) => { mongoMap[String(m._id)] = m; });
@@ -502,7 +502,7 @@ function App() {
     const t = setTimeout(async () => {
       setSearchLoading(true);
       try {
-        const res = await fetch(`/api/movies?title=${encodeURIComponent(searchQuery.trim())}`);
+        const res = await fetch(`${API_BASE}/api/movies?title=${encodeURIComponent(searchQuery.trim())}`);
         const data = await res.json();
         setSearchMongoResults(Array.isArray(data) ? data : null);
       } catch {
@@ -557,7 +557,7 @@ function App() {
       const film = await searchOmdbByTitle(q, searchYear);
       setSearchResult(film ?? null);
       if (film?.imdbID) {
-        fetch('/api/movies', {
+        fetch(`${API_BASE}/api/movies`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'ensure', film }),
@@ -637,7 +637,7 @@ function App() {
                         if (!searchResult?.imdbID) return;
                         setAddMovieLoading(true);
                         try {
-                          const res = await fetch('/api/users', {
+                          const res = await fetch(`${API_BASE}/api/users`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ action: 'add-movie', username: currentUsername, imdbID: searchResult.imdbID }),
@@ -898,7 +898,7 @@ function App() {
               if (!filmToRemove || !currentUsername) return;
               setRemoveLoading(true);
               try {
-                const res = await fetch('/api/users', {
+                const res = await fetch(`${API_BASE}/api/users`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ action: 'remove-movie', username: currentUsername, imdbID: filmToRemove.imdbID }),
