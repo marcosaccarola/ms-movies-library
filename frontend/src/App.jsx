@@ -825,7 +825,9 @@ function App() {
     </Modal>
   );
 
-  const displayName = user ? (user.email || user.username || '') : '';
+  const displayName = user
+    ? (user.username?.trim() || (user.email ? user.email.split('@')[0] || user.email : '') || '')
+    : '';
   const handleLogout = () => {
     const { refreshToken } = getStoredTokens();
     if (refreshToken) {
