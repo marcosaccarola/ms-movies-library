@@ -1,6 +1,7 @@
 /**
  * API utenti: GET movies list, POST add-movie, POST remove-movie.
  * POST body: { action: 'add-movie'|'remove-movie', username, imdbID }.
+ * (In _api solo per riferimento; le route sono gestite da server.js.)
  */
 import client from '../lib/mongodb.js';
 

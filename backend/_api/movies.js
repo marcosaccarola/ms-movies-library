@@ -1,6 +1,7 @@
 /**
  * API film: GET con query ?ids=, ?imdbIDs=, ?title=; POST ensure (inserisce se non esiste per imdbID).
  * POST body: { action: 'ensure', film }.
+ * (In _api solo per riferimento; le route sono gestite da server.js.)
  */
 import { ObjectId } from 'mongodb';
 import client from '../lib/mongodb.js';
