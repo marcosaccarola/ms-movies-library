@@ -5,6 +5,7 @@
  */
 import 'dotenv/config';
 import express from 'express';
+import compression from 'compression';
 import { ObjectId } from 'mongodb';
 import { GoogleGenAI } from '@google/genai';
 import client from './lib/mongodb.js';
@@ -22,6 +23,7 @@ import {
 } from './lib/constants.js';
 
 const app = express();
+app.use(compression());
 
 // Origin CORS: non usare mai undefined; senza barra finale per match con Origin del browser
 const corsOrigin = (process.env.CORS_ORIGIN || '*').replace(/\/$/, '');
@@ -345,7 +347,13 @@ app.post('/api/ai/chat', requireAuth, async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
+    if (res.socket && typeof res.socket.setNoDelay === 'function') {
+      res.socket.setNoDelay(true);
+    }
     res.flushHeaders && res.flushHeaders();
+    if (typeof res.flush === 'function') {
+      res.flush();
+    }
     let fullText = '';
     try {
       const stream = await ai.models.generateContentStream({
@@ -357,6 +365,9 @@ app.post('/api/ai/chat', requireAuth, async (req, res) => {
         const text = chunk.text ?? '';
         fullText += text;
         res.write(JSON.stringify({ t: text }) + '\n');
+        if (typeof res.flush === 'function') {
+          res.flush();
+        }
       }
     } catch (streamErr) {
       res.write(JSON.stringify({ error: streamErr.message || 'Errore Gemini' }) + '\n');

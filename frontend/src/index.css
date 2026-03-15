@@ -227,3 +227,61 @@ body {
 #user-dropdown::after {
   display: none;
 }
+
+/* Chat AI: Markdown nella risposta dell'assistente */
+.chat-markdown {
+  display: block;
+  line-height: 1.6;
+}
+.chat-markdown p {
+  margin-bottom: 1rem;
+}
+.chat-markdown p:last-child {
+  margin-bottom: 0;
+}
+.chat-markdown strong {
+  font-weight: 600;
+}
+.chat-markdown em {
+  font-style: italic;
+}
+.chat-markdown ul,
+.chat-markdown ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+.chat-markdown li {
+  margin-bottom: 0.25rem;
+}
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+.chat-markdown h1 { font-size: 1.25rem; }
+.chat-markdown h2 { font-size: 1.1rem; }
+.chat-markdown h3 { font-size: 1rem; }
+.chat-markdown code {
+  font-size: 0.9em;
+  padding: 0.15em 0.35em;
+  border-radius: 0.25rem;
+  background: var(--bs-tertiary-bg);
+}
+.chat-markdown pre {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  background: var(--bs-tertiary-bg);
+  overflow-x: auto;
+}
+.chat-markdown pre code {
+  padding: 0;
+  background: none;
+}
+
+/* Skeleton nella chat mentre arriva la risposta AI */
+.chat-skeleton .skeleton-line {
+  margin-bottom: 0;
+}

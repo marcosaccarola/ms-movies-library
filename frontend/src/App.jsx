@@ -3,6 +3,7 @@ import Accordion from 'react-bootstrap/Accordion';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Modal from 'react-bootstrap/Modal';
+import ReactMarkdown from 'react-markdown';
 import {
   STORAGE_ACCESS_TOKEN_KEY,
   STORAGE_REFRESH_TOKEN_KEY,
@@ -917,7 +918,7 @@ function App() {
           </div>
         )}
         <div className="flex-grow-1 overflow-auto mb-3 rounded border p-2" style={{ minHeight: '200px' }}>
-          {aiMessages.length === 0 && !aiStreamingContent && (
+          {aiMessages.length === 0 && !aiStreamingContent && !aiLoading && (
             <p className="text-body-secondary small mb-0">Scrivi un messaggio per suggerimenti sui film, tematiche o curiosità.</p>
           )}
           {aiMessages.map((msg, i) => (
@@ -931,14 +932,27 @@ function App() {
                 }`}
                 style={{ maxWidth: '90%' }}
               >
-                {msg.content}
+                {msg.role === 'user' ? msg.content : (
+                  <span className="chat-markdown"><ReactMarkdown>{msg.content}</ReactMarkdown></span>
+                )}
               </span>
             </div>
           ))}
+          {aiLoading && !aiStreamingContent && (
+            <div className="mb-2 text-start">
+              <span className="d-inline-block p-2 rounded bg-light text-dark" style={{ maxWidth: '90%' }}>
+                <span className="chat-skeleton d-flex flex-column gap-2">
+                  <span className="skeleton-line" style={{ width: '100%' }} />
+                  <span className="skeleton-line" style={{ width: '85%' }} />
+                  <span className="skeleton-line" style={{ width: '70%' }} />
+                </span>
+              </span>
+            </div>
+          )}
           {aiStreamingContent && (
             <div className="mb-2 text-start">
               <span className="d-inline-block p-2 rounded bg-light text-dark" style={{ maxWidth: '90%' }}>
-                {aiStreamingContent}
+                <span className="chat-markdown"><ReactMarkdown>{aiStreamingContent}</ReactMarkdown></span>
               </span>
             </div>
           )}
