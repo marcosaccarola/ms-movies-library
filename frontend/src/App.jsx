@@ -399,7 +399,61 @@ function MoviesLoadingSkeleton() {
   );
 }
 
+function VerifyEmailPage() {
+  const [status, setStatus] = useState('loading');
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (!token) {
+      setStatus('error');
+      setMessage('Link non valido: manca il token.');
+      return;
+    }
+    apiFetch(`${API_BASE}/auth/verify-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    })
+      .then((res) => res.json().then((data) => ({ res, data })))
+      .then(({ res, data }) => {
+        if (res.ok) {
+          setStatus('success');
+          setMessage('Indirizzo email confermato. Puoi accedere all\'app.');
+        } else {
+          setStatus('error');
+          setMessage(data.error || 'Link scaduto o non valido.');
+        }
+      })
+      .catch(() => {
+        setStatus('error');
+        setMessage('Errore di connessione.');
+      });
+  }, []);
+  return (
+    <div className="container py-5 text-center">
+      <h1 className="h3 mb-4">Verifica email</h1>
+      {status === 'loading' && <p className="text-body-secondary">Verifica in corso…</p>}
+      {status === 'success' && (
+        <>
+          <p className="text-success mb-3">{message}</p>
+          <Button as="a" href="/" variant="primary">Vai all&apos;app</Button>
+        </>
+      )}
+      {status === 'error' && (
+        <>
+          <p className="text-danger mb-3">{message}</p>
+          <Button as="a" href="/" variant="outline-primary">Torna all&apos;app</Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function App() {
+  if (typeof window !== 'undefined' && window.location.pathname === '/verify-email') {
+    return <VerifyEmailPage />;
+  }
   const [theme, setTheme] = useState(() => localStorage.getItem(STORAGE_THEME_KEY) || 'dark');
   const [user, setUser] = useState(null);
   const [showLoginForm, setShowLoginForm] = useState(true);

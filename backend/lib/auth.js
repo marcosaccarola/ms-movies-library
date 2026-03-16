@@ -49,3 +49,22 @@ export function getRefreshExpiresAt() {
   d.setDate(d.getDate() + days);
   return d;
 }
+
+/** Token per verifica email (JWT, scadenza 24h) */
+const EMAIL_VERIFICATION_EXPIRY = process.env.EMAIL_VERIFICATION_EXPIRY || '24h';
+
+export function createEmailVerificationToken(payload) {
+  if (!JWT_SECRET) throw new Error('JWT_SECRET non configurata');
+  return jwt.sign(
+    { ...payload, purpose: 'email-verification' },
+    JWT_SECRET,
+    { expiresIn: EMAIL_VERIFICATION_EXPIRY }
+  );
+}
+
+export function verifyEmailVerificationToken(token) {
+  if (!JWT_SECRET) throw new Error('JWT_SECRET non configurata');
+  const decoded = jwt.verify(token, JWT_SECRET);
+  if (decoded.purpose !== 'email-verification') throw new Error('Token non valido');
+  return decoded;
+}

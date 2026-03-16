@@ -20,7 +20,9 @@ import {
   AI_SYSTEM_INSTRUCTION,
   AI_MAX_HISTORY_MESSAGES,
   AI_HISTORY_MESSAGES_FOR_API,
+  FRONTEND_URL,
 } from './lib/constants.js';
+import * as emailService from './lib/email.js';
 
 const app = express();
 app.use(compression());
@@ -79,7 +81,7 @@ function requireAuth(req, res, next) {
   }
 }
 
-// POST /auth/register - Crea utente (email obbligatoria, username opzionale)
+// POST /auth/register - Crea utente (email obbligatoria, username opzionale); invia email di verifica
 app.post('/auth/register', async (req, res) => {
   const email = req.body?.email?.trim()?.toLowerCase();
   const password = req.body?.password;
@@ -99,6 +101,9 @@ app.post('/auth/register', async (req, res) => {
     const now = new Date();
     const doc = {
       email,
+      emails: [{ email, isVerified: false, verifiedAt: null }],
+      isEmailConfirmed: false,
+      emailConfirmedAt: null,
       username: username || email.split('@')[0],
       passwordHash,
       refreshTokens: [],
@@ -110,11 +115,64 @@ app.post('/auth/register', async (req, res) => {
     };
     const result = await db.collection('users').insertOne(doc);
     const id = String(result.insertedId);
+    try {
+      const verificationToken = auth.createEmailVerificationToken({ sub: id, email });
+      const verificationLink = `${FRONTEND_URL}/verify-email?token=${encodeURIComponent(verificationToken)}`;
+      await emailService.sendVerificationEmail(email, verificationLink);
+    } catch (mailErr) {
+      console.error('[auth/register] invio email verifica:', mailErr);
+    }
     res.setHeader('Content-Type', 'application/json');
     return res.status(201).json({ id, email: doc.email, username: doc.username });
   } catch (err) {
     console.error('[auth/register]', err);
     return res.status(500).json({ error: err.message || 'Errore registrazione' });
+  }
+});
+
+// POST /auth/verify-email - Conferma indirizzo email tramite token (link nella email)
+app.post('/auth/verify-email', async (req, res) => {
+  const token = req.body?.token?.trim();
+  if (!token) {
+    return res.status(400).json({ error: 'token è obbligatorio' });
+  }
+  try {
+    const decoded = auth.verifyEmailVerificationToken(token);
+    const userId = decoded.sub;
+    const email = decoded.email?.toLowerCase();
+    if (!userId || !email) {
+      return res.status(400).json({ error: 'Token non valido' });
+    }
+    await client.connect();
+    const db = client.db();
+    const user = await db.collection('users').findOne(userFilter(userId));
+    if (!user) {
+      return res.status(404).json({ error: 'Utente non trovato' });
+    }
+    const emails = Array.isArray(user.emails) ? user.emails : [];
+    const idx = emails.findIndex((e) => (e.email || '').toLowerCase() === email);
+    const now = new Date();
+    if (idx >= 0) {
+      const updatedEmails = [...emails];
+      updatedEmails[idx] = { ...updatedEmails[idx], email: updatedEmails[idx].email, isVerified: true, verifiedAt: now };
+      await db.collection('users').updateOne(userFilter(userId), {
+        $set: {
+          emails: updatedEmails,
+          isEmailConfirmed: true,
+          emailConfirmedAt: now,
+          updatedAt: now,
+        },
+      });
+    } else {
+      await db.collection('users').updateOne(userFilter(userId), {
+        $set: { isEmailConfirmed: true, emailConfirmedAt: now, updatedAt: now },
+      });
+    }
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(200).json({ ok: true, message: 'Email confermata' });
+  } catch (err) {
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(400).json({ error: err.message || 'Token scaduto o non valido' });
   }
 });
 
